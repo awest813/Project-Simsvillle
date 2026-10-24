@@ -11,6 +11,22 @@ NOTE! Currently does not support the entire Fame career track, saving on vacatio
 
 *Only for Desktop Windows.* Other platforms cannot be officially supported.
 
+# Playing
+
+You need a legitimate copy of The Sims 1 (Complete Collection or Legacy Collection) and Windows.
+
+1. Start `Simitone.exe`. The launcher opens.
+2. If the game is already installed, choose the folder that contains `GameData\Behavior.iff` and press Play.
+3. If you only have a disc image of that install, press **ISO...** and choose the `.iso`, `.bin`, or `.img` file. Simitone copies the game out to `Documents\Simitone\Extracted` and selects that folder.
+
+A setup disc is not enough on its own. The image has to already contain the installed game files. Language, resolution, window mode, and DirectX or OpenGL are remembered for the next launch.
+
+`-nolauncher` skips the window when a valid folder is already known:
+
+```
+Simitone.exe -nolauncher -path"C:\Path\To\The Sims\"
+```
+
 # Building
 
 This tree targets .NET 9 and will not compile until the FreeSO submodule is present.
@@ -21,15 +37,7 @@ cd Project-Simsvillle
 git submodule update --init --recursive
 ```
 
-Open `Client/Simitone/Simitone.sln` in Visual Studio 2022 or later with the .NET 9 SDK, and build `Simitone.Windows`. A legitimate The Sims 1 install is required to run the game.
-
-Double-click `Simitone.exe` to open the launcher. Choose the The Sims folder that contains `GameData\Behavior.iff`, then press Play. The folder, language, resolution, window, and renderer are remembered.
-
-`-nolauncher` skips that window when the saved or detected folder is already valid. `-path`, `-dx`, `-gl`, `-3d`, `-aa`, and `-lang` still override the saved settings:
-
-```
-Simitone.exe -nolauncher -path"C:\Path\To\The Sims\"
-```
+Open `Client/Simitone/Simitone.sln` in Visual Studio 2022 or later with the .NET 9 SDK, and build `Simitone.Windows`. `-path`, `-dx`, `-gl`, `-3d`, `-aa`, `-lang`, and `-hz` still override the saved launcher settings.
 
 # Purpose
 
