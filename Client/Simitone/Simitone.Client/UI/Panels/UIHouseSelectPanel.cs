@@ -16,8 +16,6 @@ using Simitone.Client.UI.Screens;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Simitone.Client.UI.Panels
 {
@@ -317,8 +315,8 @@ namespace Simitone.Client.UI.Panels
             var optionFunctions = new ButtonClickDelegate[]
             {
                 (family==null)?null:(ButtonClickDelegate)((btn) => Evict(family)),
-                null,
-                null,
+                CanRezone(family) ? (ButtonClickDelegate)((btn) => ConfirmRezone()) : null,
+                (btn) => ExportLot(),
                 (btn) => ShowMore(false)
             };
             var optionNames = new string[]
@@ -366,6 +364,58 @@ namespace Simitone.Client.UI.Panels
                     )
             });
             UIScreen.GlobalShowDialog(evictDialog, true);
+        }
+
+        private bool CanRezone(FAMI family)
+        {
+            if (family != null) return false;
+            if (HouseID <= 0 || HouseID >= 81) return false;
+            if (HouseID >= 21 && HouseID <= 31) return false;
+            if (HouseID >= 40 && HouseID <= 49) return false;
+            return Content.Get().Neighborhood.ZoningDictionary.ContainsKey((short)HouseID);
+        }
+
+        public void ConfirmRezone()
+        {
+            short current;
+            if (!Content.Get().Neighborhood.ZoningDictionary.TryGetValue((short)HouseID, out current))
+                current = 0;
+            var nextName = current == 0 ? "community" : "residential";
+            UIMobileAlert dialog = null;
+            dialog = new UIMobileAlert(new UIAlertOptions()
+            {
+                Title = "Rezone",
+                Message = "Change this empty lot to " + nextName + "?",
+                Buttons = UIAlertButton.YesNo(
+                    (b) =>
+                    {
+                        dialog.Close();
+                        var screen = (TS1GameScreen)UIScreen.Current;
+                        if (!screen.RezoneLot((short)HouseID, current == 0 ? (short)1 : (short)0))
+                        {
+                            UIScreen.GlobalShowDialog(new UIMobileAlert(new UIAlertOptions()
+                            {
+                                Title = "Rezone",
+                                Message = "This lot has no entry in LotZoning.iff, so it was left unchanged.",
+                                Buttons = UIAlertButton.Ok()
+                            }), true);
+                        }
+                    },
+                    (b) => { dialog.Close(); })
+            });
+            UIScreen.GlobalShowDialog(dialog, true);
+        }
+
+        public void ExportLot()
+        {
+            var screen = (TS1GameScreen)UIScreen.Current;
+            var dest = screen.ExportHouse(HouseID);
+            UIScreen.GlobalShowDialog(new UIMobileAlert(new UIAlertOptions()
+            {
+                Title = "Export",
+                Message = "Copied this lot to " + dest,
+                Buttons = UIAlertButton.Ok()
+            }), true);
         }
 
         public void ShowMore(bool more)

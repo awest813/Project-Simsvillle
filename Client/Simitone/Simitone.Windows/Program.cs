@@ -207,13 +207,20 @@ namespace Simitone.Windows
                 // Fix up the Image to match the expected format
                 image = (Bitmap)image.RGBToBGR();
 
-                var data = new byte[image.Width * image.Height * 4];
+                var width = image.Width;
+                var height = image.Height;
+                var data = new byte[width * height * 4];
 
-                BitmapData bitmapData = image.LockBits(new System.Drawing.Rectangle(0, 0, image.Width, image.Height),
+                BitmapData bitmapData = image.LockBits(new System.Drawing.Rectangle(0, 0, width, height),
                     ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-                if (bitmapData.Stride != image.Width * 4)
-                    throw new NotImplementedException();
-                Marshal.Copy(bitmapData.Scan0, data, 0, data.Length);
+                var rowBytes = width * 4;
+                if (bitmapData.Stride == rowBytes)
+                    Marshal.Copy(bitmapData.Scan0, data, 0, data.Length);
+                else
+                {
+                    for (int y = 0; y < height; y++)
+                        Marshal.Copy(bitmapData.Scan0 + y * bitmapData.Stride, data, y * rowBytes, rowBytes);
+                }
                 image.UnlockBits(bitmapData);
 
                 return new Tuple<byte[], int, int>(data, image.Width, image.Height);
