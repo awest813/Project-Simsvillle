@@ -452,7 +452,13 @@ namespace Simitone.Client.UI.Screens
 
             if (SwitchLot > 0)
             {
-                if (!Downtown) SavedLot = vm.Save();
+                if (!Downtown)
+                {
+                    // Snapshot the household lot before the visit. Save() must write this marshal,
+                    // not the lot currently on screen.
+                    vm.TS1State?.UpdateSIMI(vm);
+                    SavedLot = vm.Save();
+                }
                 if (SwitchLot == ActiveFamily.HouseNumber && SavedLot != null)
                 {
                     Downtown = false;
@@ -841,7 +847,7 @@ namespace Simitone.Client.UI.Screens
                     CloseAlert = new UIMobileAlert(new FSO.Client.UI.Controls.UIAlertOptions
                     {
                         Title = GameFacade.Strings.GetString("153", "1"), //quit?
-                        Message = GameFacade.Strings.GetString("153", canSave?"6":"2"), //are you sure (2), save before quitting (3)
+                        Message = SaveChoiceMessage(canSave?"6":"2"), //are you sure (2), save before quitting (3)
                         Buttons = 
                         canSave?
                         UIAlertButton.YesNoCancel(
@@ -868,7 +874,7 @@ namespace Simitone.Client.UI.Screens
                 CloseAlert = new UIMobileAlert(new FSO.Client.UI.Controls.UIAlertOptions
                 {
                     Title = GameFacade.Strings.GetString("153", "3"), //save
-                    Message = GameFacade.Strings.GetString("153", "4"), //Do you want to save the game?
+                    Message = SaveChoiceMessage("4"), //Do you want to save the game?
                     Buttons =
                     UIAlertButton.YesNoCancel(
                         (b) => { Save(); ExitLot(); CloseAlert.Close(); CloseAlert = null; },
@@ -880,26 +886,37 @@ namespace Simitone.Client.UI.Screens
             }
         }
 
+        /// <summary>
+        /// While a visit is in progress the on-screen lot is not the household.
+        /// Say so on the save and quit prompts, which otherwise read as saving this lot.
+        /// </summary>
+        private string SaveChoiceMessage(string stringId)
+        {
+            var message = GameFacade.Strings.GetString("153", stringId);
+            if (!Downtown) return message;
+            return message + "\n\nSaving keeps your home lot as it was when you left. This lot is left unchanged.";
+        }
+
         public void Save()
         {
+            // A downtown or vacation visit keeps the household marshal in SavedLot and loads
+            // another house into the live VM. Writing that VM would bake the visit into the
+            // community lot. Persist the household snapshot instead.
+            if (Downtown)
+            {
+                if (SavedLot != null && ActiveFamily != null)
+                    WriteHouseSnapshot(ActiveFamily.HouseNumber, SavedLot);
+                Content.Get().Neighborhood.SaveNeighbourhood(true);
+                return;
+            }
+
+            if (vm == null) return;
+
             //save the house first
             var iff = new IffFile();
             vm.TS1State.UpdateSIMI(vm);
             var marshal = vm.Save();
-            var fsov = new FSOV();
-            fsov.ChunkLabel = "Simitone Lot Data";
-            fsov.ChunkID = 1;
-            fsov.ChunkProcessed = true;
-            fsov.ChunkType = "FSOV";
-            fsov.AddedByPatch = true;
-
-            using (var stream = new MemoryStream())
-            {
-                marshal.SerializeInto(new BinaryWriter(stream));
-                fsov.Data = stream.ToArray();
-            }
-
-            iff.AddChunk(fsov);
+            iff.AddChunk(BuildFsov(marshal));
 
             var simi = vm.TS1State.SimulationInfo;
             simi.ChunkProcessed = true;
@@ -921,6 +938,120 @@ namespace Simitone.Client.UI.Screens
             Content.Get().Neighborhood.SaveHouse(vm.GetGlobalValue(10), iff);
             Content.Get().Neighborhood.SaveNeighbourhood(true);
         }
+
+        private static FSOV BuildFsov(VMMarshal marshal)
+        {
+            var fsov = new FSOV
+            {
+                ChunkLabel = "Simitone Lot Data",
+                ChunkID = 1,
+                ChunkProcessed = true,
+                ChunkType = "FSOV",
+                AddedByPatch = true
+            };
+
+            using (var stream = new MemoryStream())
+            {
+                marshal.SerializeInto(new BinaryWriter(stream));
+                fsov.Data = stream.ToArray();
+            }
+
+            return fsov;
+        }
+
+        /// <summary>
+        /// Writes a household marshal into that house file without rebuilding the lot that is on screen.
+        /// Thumbnail and SIMI chunks are copied byte-for-byte so the neighborhood map still has a picture
+        /// and a lot price. Rewriting the original house chunks is not safe.
+        /// </summary>
+        private void WriteHouseSnapshot(int houseID, VMMarshal marshal)
+        {
+            var iff = new IffFile();
+            iff.AddChunk(BuildFsov(marshal));
+
+            var path = Content.Get().Neighborhood.GetHousePath(houseID);
+            if (File.Exists(path))
+            {
+                IffFile existing;
+                try
+                {
+                    existing = new IffFile(path, true);
+                }
+                catch (Exception)
+                {
+                    // Leave the house file as it is when its chunks cannot be read back.
+                    return;
+                }
+
+                var seen = new HashSet<string>();
+                var hadImage = false;
+                var copiedImage = false;
+                foreach (var chunk in existing.SilentListAll())
+                {
+                    if (chunk.ChunkType == "BMP_" || chunk.ChunkType == "PNG_") hadImage = true;
+                    if (chunk.OriginalData == null || chunk.OriginalData.Length == 0) continue;
+                    PreservedIffChunk copy;
+                    switch (chunk.ChunkType)
+                    {
+                        case "SIMI": copy = new PreservedSimiChunk(); break;
+                        case "BMP_": copy = new PreservedBmpChunk(); break;
+                        case "PNG_": copy = new PreservedPngChunk(); break;
+                        case "THMB": copy = new PreservedThmbChunk(); break;
+                        default: continue;
+                    }
+
+                    var key = chunk.ChunkType + ":" + chunk.ChunkID;
+                    if (!seen.Add(key)) continue;
+
+                    copy.ChunkID = chunk.ChunkID;
+                    copy.ChunkType = chunk.ChunkType;
+                    copy.ChunkLabel = chunk.ChunkLabel ?? "";
+                    copy.ChunkFlags = chunk.ChunkFlags == 0 ? (ushort)0x10 : chunk.ChunkFlags;
+                    copy.ChunkProcessed = true;
+                    copy.AddedByPatch = true;
+                    copy.OriginalData = chunk.OriginalData;
+                    iff.AddChunk(copy);
+                    if (chunk.ChunkType == "BMP_" || chunk.ChunkType == "PNG_") copiedImage = true;
+                }
+
+                if (hadImage && !copiedImage) return;
+            }
+
+            var previousFormat = IffFile.TargetTS1;
+            IffFile.TargetTS1 = true;
+            try
+            {
+                Content.Get().Neighborhood.SaveHouse(houseID, iff);
+            }
+            finally
+            {
+                IffFile.TargetTS1 = previousFormat;
+            }
+        }
+
+        /// <summary>
+        /// Holds the original bytes of a house chunk. Each chunk type has its own class because
+        /// IffFile indexes chunks by runtime type and id, and a thumbnail BMP and THMB share an id.
+        /// The on-disk type comes from ChunkType, so the next load still sees SIMI, BMP_, PNG_, and THMB.
+        /// </summary>
+        private class PreservedIffChunk : IffChunk
+        {
+            public override void Read(IffFile iff, Stream stream)
+            {
+            }
+
+            public override bool Write(IffFile iff, Stream stream)
+            {
+                if (OriginalData == null) return false;
+                stream.Write(OriginalData, 0, OriginalData.Length);
+                return true;
+            }
+        }
+
+        private sealed class PreservedSimiChunk : PreservedIffChunk { }
+        private sealed class PreservedBmpChunk : PreservedIffChunk { }
+        private sealed class PreservedPngChunk : PreservedIffChunk { }
+        private sealed class PreservedThmbChunk : PreservedIffChunk { }
 
         public PNG GeneratePNG(Texture2D data)
         {
