@@ -345,10 +345,11 @@ namespace Simitone.Client.UI.Screens
             Visible = World?.Visible != false && World?.State.Cameras.HideUI != true;
             GameFacade.Game.IsMouseVisible = Visible;
 
-            if (state.NewKeys.Contains(Keys.D1)) ChangeSpeedTo(1);
-            if (state.NewKeys.Contains(Keys.D2)) ChangeSpeedTo(2);
-            if (state.NewKeys.Contains(Keys.D3)) ChangeSpeedTo(3);
-            if (state.NewKeys.Contains(Keys.P)) ChangeSpeedTo(0);
+            var numLock = state.KeyboardState.NumLock;
+            if (state.NewKeys.Contains(Keys.D1) || (numLock && state.NewKeys.Contains(Keys.NumPad1))) ChangeSpeedTo(1);
+            if (state.NewKeys.Contains(Keys.D2) || (numLock && state.NewKeys.Contains(Keys.NumPad2))) ChangeSpeedTo(2);
+            if (state.NewKeys.Contains(Keys.D3) || (numLock && state.NewKeys.Contains(Keys.NumPad3))) ChangeSpeedTo(3);
+            if (state.NewKeys.Contains(Keys.P) || (numLock && state.NewKeys.Contains(Keys.NumPad0))) ChangeSpeedTo(0);
             if (state.NewKeys.Contains(Keys.D0))
             {
                 //frame advance
