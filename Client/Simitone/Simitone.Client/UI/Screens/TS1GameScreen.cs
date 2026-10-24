@@ -254,6 +254,67 @@ namespace Simitone.Client.UI.Screens
             TS1NeighPanel.SelectHouse(houseID);
         }
 
+        /// <summary>
+        /// Toggles an empty main-neighborhood lot between residential (0) and community (1)
+        /// and writes the change back to LotZoning.iff.
+        /// </summary>
+        public bool RezoneLot(short houseID, short zone)
+        {
+            var neigh = Content.Get().Neighborhood;
+            var path = Path.Combine(neigh.UserPath, "LotZoning.iff");
+            var iff = new IffFile(path);
+            var table = iff.Get<STR>(1);
+            if (table == null) return false;
+
+            var id = houseID.ToString();
+            var found = -1;
+            for (int i = 0; i < table.Length; i++)
+            {
+                var line = table.GetString(i) ?? "";
+                var comma = line.IndexOf(',');
+                if (comma <= 0) continue;
+                if (line.Substring(0, comma).Trim() == id)
+                {
+                    found = i;
+                    break;
+                }
+            }
+            if (found < 0) return false;
+
+            table.SetString(found, houseID + (zone == 1 ? ", community" : ", residential"));
+            var previousFormat = IffFile.TargetTS1;
+            IffFile.TargetTS1 = true;
+            try
+            {
+                using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+                    iff.Write(stream);
+            }
+            finally
+            {
+                IffFile.TargetTS1 = previousFormat;
+            }
+
+            neigh.ZoningDictionary[houseID] = zone;
+            RefreshHousePanel(houseID);
+            return true;
+        }
+
+        public string ExportHouse(int houseID)
+        {
+            var source = Content.Get().Neighborhood.GetHousePath(houseID);
+            var destDir = Path.Combine(FSOEnvironment.UserDir, "Exports");
+            Directory.CreateDirectory(destDir);
+            var dest = Path.Combine(destDir, "House" + houseID.ToString().PadLeft(2, '0') + ".iff");
+            File.Copy(source, dest, true);
+            return dest;
+        }
+
+        public void RefreshHousePanel(int houseID)
+        {
+            // Same house id closes the panel. The next open rebuilds the description from the saved zone.
+            TS1NeighPanel?.SelectHouse(houseID);
+        }
+
         public override void GameResized()
         {
             base.GameResized();
@@ -345,10 +406,11 @@ namespace Simitone.Client.UI.Screens
             Visible = World?.Visible != false && World?.State.Cameras.HideUI != true;
             GameFacade.Game.IsMouseVisible = Visible;
 
-            if (state.NewKeys.Contains(Keys.D1)) ChangeSpeedTo(1);
-            if (state.NewKeys.Contains(Keys.D2)) ChangeSpeedTo(2);
-            if (state.NewKeys.Contains(Keys.D3)) ChangeSpeedTo(3);
-            if (state.NewKeys.Contains(Keys.P)) ChangeSpeedTo(0);
+            var numLock = state.KeyboardState.NumLock;
+            if (state.NewKeys.Contains(Keys.D1) || (numLock && state.NewKeys.Contains(Keys.NumPad1))) ChangeSpeedTo(1);
+            if (state.NewKeys.Contains(Keys.D2) || (numLock && state.NewKeys.Contains(Keys.NumPad2))) ChangeSpeedTo(2);
+            if (state.NewKeys.Contains(Keys.D3) || (numLock && state.NewKeys.Contains(Keys.NumPad3))) ChangeSpeedTo(3);
+            if (state.NewKeys.Contains(Keys.P) || (numLock && state.NewKeys.Contains(Keys.NumPad0))) ChangeSpeedTo(0);
             if (state.NewKeys.Contains(Keys.D0))
             {
                 //frame advance

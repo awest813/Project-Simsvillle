@@ -11,6 +11,26 @@ NOTE! Currently does not support the entire Fame career track, saving on vacatio
 
 *Only for Desktop Windows.* Other platforms cannot be officially supported.
 
+# Building
+
+This tree targets .NET 9 and will not compile until the FreeSO submodule is present.
+
+```
+git clone --recurse-submodules https://github.com/awest813/Project-Simsvillle.git
+cd Project-Simsvillle
+git submodule update --init --recursive
+```
+
+Open `Client/Simitone/Simitone.sln` in Visual Studio 2022 or later with the .NET 9 SDK, and build `Simitone.Windows`. A legitimate The Sims 1 install is required to run the game.
+
+If the install is not in the default location and the Maxis registry key is missing, pass it explicitly. The folder must contain `GameData\Behavior.iff`:
+
+```
+Simitone.exe -path"C:\Path\To\The Sims\"
+```
+
+Simitone shows an error and exits when that file is not found.
+
 # Purpose
 
 On modern operating systems, The Sims has a few nagging issues that make it less than playable. Simitone can be seen as a tool to improve the playability of your existing installation of The Sims. Here are some features:

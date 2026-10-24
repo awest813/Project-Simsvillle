@@ -15,6 +15,8 @@ using FSO.Common.Rendering.Framework.Model;
 using Simitone.Client.UI.Panels.LiveSubpanels;
 using Simitone.Client.UI.Screens;
 using FSO.Client.UI.Controls;
+using FSO.HIT;
+using FSO.HIT.Model;
 
 namespace Simitone.Client.UI.Panels
 {
@@ -98,7 +100,8 @@ namespace Simitone.Client.UI.Panels
 
         private List<UICategory> OptionsCategories = new List<UICategory>()
         {
-            new UICategory() { ID = 0, IconName = "cat_build_arch.png" },
+            new UICategory() { ID = 0, IconName = "opt_save.png" },
+            new UICategory() { ID = 1, IconName = "mode_options.png" },
         };
 
         public UIMainPanel(TS1GameScreen game) : base()
@@ -237,14 +240,45 @@ namespace Simitone.Client.UI.Panels
                     panel = new UIBuyBrowsePanel(Game, (sbyte)obj, UICatalogMode.Build);
                     break;
                 case UIMainPanelMode.OPTIONS:
-                    panel = new UIButtonSubpanel(Game, new UICatFunc[] {
-                        new UICatFunc(GameFacade.Strings.GetString("145", "3"), "opt_save.png", () => { Game.Save(); }),
-                        new UICatFunc(GameFacade.Strings.GetString("145", "1"), "opt_neigh.png", () => { Game.ReturnToNeighbourhood(); }),
-                        new UICatFunc(GameFacade.Strings.GetString("145", "5"), "opt_quit.png", () => { Game.CloseAttempt(); }),
-                    });
+                    if (obj == 1) panel = BuildSettingsPanel();
+                    else
+                    {
+                        panel = new UIButtonSubpanel(Game, new UICatFunc[] {
+                            new UICatFunc(GameFacade.Strings.GetString("145", "3"), "opt_save.png", () => { Game.Save(); }),
+                            new UICatFunc(GameFacade.Strings.GetString("145", "1"), "opt_neigh.png", () => { Game.ReturnToNeighbourhood(); }),
+                            new UICatFunc(GameFacade.Strings.GetString("145", "5"), "opt_quit.png", () => { Game.CloseAttempt(); }),
+                        });
+                    }
                     break;
             }
             SetSubpanel(panel);
+        }
+
+        private UIButtonSubpanel BuildSettingsPanel()
+        {
+            var settings = GlobalSettings.Default;
+            var edge = settings.EdgeScroll ? "Edge Scroll On" : "Edge Scroll Off";
+            string music;
+            if (settings.MusicVolume == 0) music = "Music Off";
+            else if (settings.MusicVolume < 10) music = "Music Low";
+            else music = "Music High";
+
+            return new UIButtonSubpanel(Game, new UICatFunc[]
+            {
+                new UICatFunc(edge, "mode_options.png", () =>
+                {
+                    settings.EdgeScroll = !settings.EdgeScroll;
+                    settings.Save();
+                    Switcher_OnCategorySelect(1);
+                }),
+                new UICatFunc(music, "live_motives.png", () =>
+                {
+                    settings.MusicVolume = settings.MusicVolume == 0 ? (byte)10 : (byte)(settings.MusicVolume >= 10 ? 5 : 0);
+                    settings.Save();
+                    HITVM.Get().SetMasterVolume(HITVolumeGroup.MUSIC, settings.MusicVolume / 10f);
+                    Switcher_OnCategorySelect(1);
+                }),
+            });
         }
 
         public UICatalogMode GetLotType(bool music)

@@ -16,6 +16,7 @@ using FSO.Client;
 using Simitone.Client.UI.Model;
 using FSO.Client.UI.Panels.LotControls;
 using FSO.Client.UI.Model;
+using FSO.HIT;
 using FSO.LotView.Model;
 
 namespace Simitone.Client.UI.Panels.LiveSubpanels
@@ -425,7 +426,14 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
             holder.ClearSelected();
             var item = FilterCategory.ElementAt(itemID);
 
-            //todo: check if over budget?
+            var price = item.Special != null
+                ? (item.Special.Res?.GetPrice(item.Special.ResID) ?? 0)
+                : item.CalcPrice;
+            if (price > Game.LotControl.Budget)
+            {
+                HITVM.Get().PlaySoundEvent(UISounds.Error);
+                return;
+            }
 
             // if (OldSelection != -1) Catalog.SetActive(OldSelection, false);
             //Catalog.SetActive(selection, true);

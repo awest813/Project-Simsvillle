@@ -25,6 +25,8 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
         public List<Tuple<int, int>> Items = new List<Tuple<int, int>>();
         public UITouchScroll ScrollView;
         public int RelSort = -1;
+        // TS1 treats a daily relationship of 50 or higher as a friend (see VMMemory neighbor friend count).
+        private const short FriendThreshold = 50;
 
         public UITwoStateButton FriendButton;
         public UITwoStateButton FamButton;
@@ -89,9 +91,33 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
             var neighbour = sel.GetPersonData(VMPersonDataVariable.NeighborId);
 
             var n = neighbourhood.GetNeighborByID(neighbour);
-            var rel = n.Relationships;
+            if (n?.Relationships == null) return;
 
-            var rItems = rel.Select(x => new Tuple<int,int>(neighbour, x.Key)).ToList();
+            IEnumerable<KeyValuePair<int, List<short>>> rels = n.Relationships;
+            if (RelSort == 0)
+            {
+                rels = rels.Where(x => x.Value.Count > 0 && x.Value[0] >= FriendThreshold);
+            }
+            else if (RelSort == 1)
+            {
+                var myFamily = FamilyNumber(n);
+                rels = rels.Where(x =>
+                {
+                    if (myFamily == 0) return false;
+                    var other = neighbourhood.GetNeighborByID((short)x.Key);
+                    return other != null && FamilyNumber(other) == myFamily;
+                });
+            }
+            else if (RelSort == 2)
+            {
+                rels = rels.Where(x =>
+                {
+                    var other = neighbourhood.GetNeighborByID((short)x.Key);
+                    return other != null && FameScore(other) > 0;
+                });
+            }
+
+            var rItems = rels.Select(x => new Tuple<int,int>(neighbour, x.Key)).ToList();
 
             bool difference = false;
             if (rItems.Count == Items.Count)
@@ -112,6 +138,22 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
                 Items = rItems;
                 ScrollView.Reset();
             }
+        }
+
+        private static short FamilyNumber(FSO.Files.Formats.IFF.Chunks.Neighbour neighbor)
+        {
+            var data = neighbor.PersonData;
+            var index = (int)VMPersonDataVariable.TS1FamilyNumber;
+            if (data == null || data.Length <= index) return 0;
+            return data[index];
+        }
+
+        private static short FameScore(FSO.Files.Formats.IFF.Chunks.Neighbour neighbor)
+        {
+            var data = neighbor.PersonData;
+            var index = (int)VMPersonDataVariable.TS1FameScore;
+            if (data == null || data.Length <= index) return 0;
+            return data[index];
         }
     }
 
@@ -157,11 +199,20 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
                 Item = UIIconCache.GetObject(aobj.BaseObject);
                 aobj.Delete(curVM.Context);
                 var ctss = obj.Resource.Get<CTSS>(obj.OBJ.CatalogStringsID);
-                //todo: family name
-                NameLabel.Caption = ctss?.GetString(0) ?? obj.OBJ.ChunkLabel;
+                var given = ctss?.GetString(0) ?? obj.OBJ.ChunkLabel;
+                var familyName = FamilyName(n);
+                NameLabel.Caption = string.IsNullOrEmpty(familyName) ? given : given + "\n" + familyName;
             }
             NIDF = nidFrom;
             NID = nid;
+        }
+
+        private static string FamilyName(FSO.Files.Formats.IFF.Chunks.Neighbour neighbor)
+        {
+            var data = neighbor?.PersonData;
+            var index = (int)VMPersonDataVariable.TS1FamilyNumber;
+            if (data == null || data.Length <= index || data[index] == 0) return null;
+            return Content.Get().Neighborhood.GetFamilyString((ushort)data[index])?.GetString(0);
         }
 
         public override void Update(UpdateState state)

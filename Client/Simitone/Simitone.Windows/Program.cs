@@ -105,6 +105,18 @@ namespace Simitone.Windows
                 }
             }
             #endregion
+            if (!IsValidSims1Install(path))
+            {
+                MessageBox.Show(
+                    "The Sims 1 was not found, or the folder is not a playable install.\n\n" +
+                    "Simitone needs a Complete Collection or Legacy Collection folder that contains GameData\\Behavior.iff.\n\n" +
+                    "Pass it on the command line:\n" +
+                    "Simitone.exe -path\"C:\\Path\\To\\The Sims\\\"",
+                    "Simitone",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
             useDX = MonogameLinker.Link(useDX);
 
             FSO.Files.ImageLoaderHelpers.BitmapFunction = BitmapReader;
@@ -144,6 +156,12 @@ namespace Simitone.Windows
                 var start = new GameStartProxy();
                 start.Start(useDX);
             }
+        }
+
+        private static bool IsValidSims1Install(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            return File.Exists(Path.Combine(path, "GameData", "Behavior.iff"));
         }
 
         private static System.Reflection.Assembly OnAssemblyResolve(object sender, ResolveEventArgs args)
@@ -189,13 +207,20 @@ namespace Simitone.Windows
                 // Fix up the Image to match the expected format
                 image = (Bitmap)image.RGBToBGR();
 
-                var data = new byte[image.Width * image.Height * 4];
+                var width = image.Width;
+                var height = image.Height;
+                var data = new byte[width * height * 4];
 
-                BitmapData bitmapData = image.LockBits(new System.Drawing.Rectangle(0, 0, image.Width, image.Height),
+                BitmapData bitmapData = image.LockBits(new System.Drawing.Rectangle(0, 0, width, height),
                     ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-                if (bitmapData.Stride != image.Width * 4)
-                    throw new NotImplementedException();
-                Marshal.Copy(bitmapData.Scan0, data, 0, data.Length);
+                var rowBytes = width * 4;
+                if (bitmapData.Stride == rowBytes)
+                    Marshal.Copy(bitmapData.Scan0, data, 0, data.Length);
+                else
+                {
+                    for (int y = 0; y < height; y++)
+                        Marshal.Copy(bitmapData.Scan0 + y * bitmapData.Stride, data, y * rowBytes, rowBytes);
+                }
                 image.UnlockBits(bitmapData);
 
                 return new Tuple<byte[], int, int>(data, image.Width, image.Height);
