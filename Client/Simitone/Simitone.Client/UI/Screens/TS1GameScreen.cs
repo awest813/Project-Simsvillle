@@ -91,7 +91,7 @@ namespace Simitone.Client.UI.Screens
                         World.Visible = true;
                         //ucp.SetMode(UIUCP.UCPMode.LotMode);
                         LotControl.SetTargetZoom(targ);
-                        if (m_ZoomLevel != value) vm.Context.World.InitiateSmoothZoom(targ);
+                        if (m_ZoomLevel != value) StartZoomTransition(targ);
                         vm.Context.World.State.Zoom = targ;
                         m_ZoomLevel = value;
                     }
@@ -331,6 +331,22 @@ namespace Simitone.Client.UI.Screens
 
         private int SwitchLot = -1;
 
+        private void StartZoomTransition(WorldZoom target)
+        {
+            var world = vm.Context.World;
+            var timerBefore = world.SmoothZoomTimer;
+            world.InitiateSmoothZoom(target);
+            if (world.SmoothZoomTimer != timerBefore) return;
+
+            // 2D mode leaves transitions off, so the world call above does not start.
+            var curScale = 1 << (3 - (int)world.State.Zoom);
+            var zoomScale = 1 << (3 - (int)target);
+            if (curScale == 0 || zoomScale == curScale) return;
+            world.SmoothZoomFrom = (float)zoomScale / curScale;
+            world.State.PreciseZoom = world.SmoothZoomFrom;
+            world.SmoothZoomTimer = 0;
+        }
+
         public void ChangeSpeedTo(int speed)
         {
             //0 speed is 0x
@@ -444,11 +460,6 @@ namespace Simitone.Client.UI.Screens
                 }), true);
             }
             */
-
-            if (World != null)
-            {
-                //stub smooth zoom?
-            }
 
             if (SwitchLot > 0)
             {

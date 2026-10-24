@@ -258,10 +258,6 @@ namespace Simitone.Client.UI.Panels
         {
             var settings = GlobalSettings.Default;
             var edge = settings.EdgeScroll ? "Edge Scroll On" : "Edge Scroll Off";
-            string music;
-            if (settings.MusicVolume == 0) music = "Music Off";
-            else if (settings.MusicVolume < 10) music = "Music Low";
-            else music = "Music High";
 
             return new UIButtonSubpanel(Game, new UICatFunc[]
             {
@@ -271,14 +267,39 @@ namespace Simitone.Client.UI.Panels
                     settings.Save();
                     Switcher_OnCategorySelect(1);
                 }),
-                new UICatFunc(music, "live_motives.png", () =>
+                new UICatFunc(VolumeLabel("Music", settings.MusicVolume), "live_motives.png", () =>
                 {
-                    settings.MusicVolume = settings.MusicVolume == 0 ? (byte)10 : (byte)(settings.MusicVolume >= 10 ? 5 : 0);
+                    settings.MusicVolume = NextVolume(settings.MusicVolume);
                     settings.Save();
                     HITVM.Get().SetMasterVolume(HITVolumeGroup.MUSIC, settings.MusicVolume / 10f);
                     Switcher_OnCategorySelect(1);
                 }),
+                new UICatFunc(VolumeLabel("Effects", settings.FXVolume), "live_personality.png", () =>
+                {
+                    var next = NextVolume(settings.FXVolume);
+                    settings.FXVolume = next;
+                    settings.VoxVolume = next;
+                    settings.Save();
+                    var hit = HITVM.Get();
+                    hit.SetMasterVolume(HITVolumeGroup.FX, next / 10f);
+                    hit.SetMasterVolume(HITVolumeGroup.VOX, next / 10f);
+                    Switcher_OnCategorySelect(1);
+                }),
             });
+        }
+
+        private static string VolumeLabel(string name, byte volume)
+        {
+            if (volume == 0) return name + " Off";
+            if (volume < 10) return name + " Low";
+            return name + " High";
+        }
+
+        private static byte NextVolume(byte volume)
+        {
+            if (volume == 0) return 10;
+            if (volume >= 10) return 5;
+            return 0;
         }
 
         public UICatalogMode GetLotType(bool music)
