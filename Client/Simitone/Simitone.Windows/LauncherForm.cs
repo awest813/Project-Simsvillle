@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace Simitone.Windows
@@ -75,7 +76,7 @@ namespace Simitone.Windows
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(560, 468);
+            ClientSize = new Size(560, 492);
             Font = new Font("Segoe UI", 9f);
             AutoScaleMode = AutoScaleMode.Font;
 
@@ -88,9 +89,9 @@ namespace Simitone.Windows
             };
             var subtitle = new Label
             {
-                Text = "Choose the The Sims folder, then play. The folder must contain GameData.",
+                Text = "Choose an installed The Sims folder, or extract a disc image of that install.",
                 AutoSize = false,
-                Size = new Size(528, 32),
+                Size = new Size(528, 36),
                 Location = new Point(16, 48)
             };
 
@@ -98,33 +99,40 @@ namespace Simitone.Windows
             {
                 Text = "The Sims folder",
                 AutoSize = true,
-                Location = new Point(16, 88)
+                Location = new Point(16, 96)
             };
             _path = new TextBox
             {
-                Location = new Point(16, 110),
-                Size = new Size(430, 24),
+                Location = new Point(16, 118),
+                Size = new Size(338, 24),
                 Text = initial.SimsPath ?? ""
             };
             var browse = new Button
             {
                 Text = "Browse...",
-                Location = new Point(454, 108),
-                Size = new Size(90, 28)
+                Location = new Point(362, 116),
+                Size = new Size(88, 28)
             };
             browse.Click += Browse;
+            var iso = new Button
+            {
+                Text = "ISO...",
+                Location = new Point(456, 116),
+                Size = new Size(88, 28)
+            };
+            iso.Click += ExtractIso;
             _path.TextChanged += (sender, args) => RefreshStatus();
             _status = new Label
             {
                 AutoSize = false,
-                Location = new Point(16, 140),
-                Size = new Size(528, 36)
+                Location = new Point(16, 152),
+                Size = new Size(528, 40)
             };
 
             var display = new GroupBox
             {
                 Text = "Display",
-                Location = new Point(16, 180),
+                Location = new Point(16, 198),
                 Size = new Size(528, 150)
             };
             display.Controls.Add(new Label
@@ -194,7 +202,7 @@ namespace Simitone.Windows
             var languageBox = new GroupBox
             {
                 Text = "Language",
-                Location = new Point(16, 340),
+                Location = new Point(16, 358),
                 Size = new Size(528, 68)
             };
             _language = new ComboBox
@@ -222,14 +230,14 @@ namespace Simitone.Windows
             _play = new Button
             {
                 Text = "Play",
-                Location = new Point(348, 422),
+                Location = new Point(348, 444),
                 Size = new Size(100, 32)
             };
             _play.Click += Play;
             var quit = new Button
             {
                 Text = "Quit",
-                Location = new Point(456, 422),
+                Location = new Point(456, 444),
                 Size = new Size(88, 32),
                 DialogResult = DialogResult.Cancel
             };
@@ -241,6 +249,7 @@ namespace Simitone.Windows
             Controls.Add(pathLabel);
             Controls.Add(_path);
             Controls.Add(browse);
+            Controls.Add(iso);
             Controls.Add(_status);
             Controls.Add(display);
             Controls.Add(languageBox);
@@ -270,6 +279,61 @@ namespace Simitone.Windows
             }
         }
 
+        void ExtractIso(object sender, EventArgs e)
+        {
+            using (var dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Choose a The Sims disc image";
+                dialog.Filter = "Disc image (*.iso;*.bin;*.img)|*.iso;*.bin;*.img|All files (*.*)|*.*";
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+                var name = Path.GetFileNameWithoutExtension(dialog.FileName);
+                foreach (var invalid in Path.GetInvalidFileNameChars())
+                    name = name.Replace(invalid, '_');
+                name = name.Trim();
+                if (name.Length == 0) name = "The Sims";
+                var destination = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "Simitone",
+                    "Extracted",
+                    name);
+
+                if (Directory.Exists(destination) && Directory.EnumerateFileSystemEntries(destination).Any())
+                {
+                    var replace = MessageBox.Show(this,
+                        "A previous extract is already here:\n\n" + destination + "\n\nExtract again and replace those files?\n\nNo keeps the folder that is already there.",
+                        "Simitone",
+                        MessageBoxButtons.YesNoCancel,
+                        MessageBoxIcon.Question);
+                    if (replace == DialogResult.Cancel) return;
+                    if (replace == DialogResult.No)
+                    {
+                        _path.Text = destination;
+                        return;
+                    }
+                }
+
+                try
+                {
+                    Enabled = false;
+                    IsoExtractForm.Run(this, dialog.FileName, destination);
+                    _path.Text = destination;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Simitone", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                finally
+                {
+                    Enabled = true;
+                    RefreshStatus();
+                }
+            }
+        }
+
         void Browse(object sender, EventArgs e)
         {
             using (var dialog = new FolderBrowserDialog())
@@ -291,9 +355,15 @@ namespace Simitone.Windows
                 _status.ForeColor = Color.FromArgb(20, 110, 50);
                 _play.Enabled = true;
             }
+            else if (string.IsNullOrWhiteSpace(_path.Text))
+            {
+                _status.Text = "Choose the installed game folder, or use ISO to extract a disc image of that install.";
+                _status.ForeColor = SystemColors.GrayText;
+                _play.Enabled = false;
+            }
             else
             {
-                _status.Text = "That folder is not a playable install. Choose the folder that contains GameData\\Behavior.iff.";
+                _status.Text = "That folder does not contain GameData\\Behavior.iff. Choose the install, or use ISO for a disc image of it.";
                 _status.ForeColor = Color.FromArgb(160, 40, 40);
                 _play.Enabled = false;
             }

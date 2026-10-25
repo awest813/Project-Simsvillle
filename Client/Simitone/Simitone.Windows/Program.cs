@@ -64,9 +64,22 @@ namespace Simitone.Windows
                 var cmd = arg.Substring(1);
                 if (cmd.StartsWith("lang"))
                 {
-                    langArg = byte.Parse(cmd.Substring(4));
+                    if (!byte.TryParse(cmd.Substring(4), out var lang))
+                    {
+                        MessageBox.Show("The -lang value has to be a language number, such as -lang1 for English.", "Simitone", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    langArg = lang;
                 }
-                else if (cmd.StartsWith("hz")) hzArg = int.Parse(cmd.Substring(2));
+                else if (cmd.StartsWith("hz"))
+                {
+                    if (!int.TryParse(cmd.Substring(2), out var hz) || hz < 1)
+                    {
+                        MessageBox.Show("The -hz value has to be a refresh rate, such as -hz60.", "Simitone", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    hzArg = hz;
+                }
                 else
                 {
                     //normal style param
@@ -201,7 +214,6 @@ namespace Simitone.Windows
             if (Sims1Install.IsValid(saved)) return saved;
             var located = Sims1Install.Normalize(locatedPath);
             if (Sims1Install.IsValid(located)) return located;
-            if (!string.IsNullOrEmpty(fromArg)) return fromArg;
             if (!string.IsNullOrEmpty(saved)) return saved;
             return located;
         }
