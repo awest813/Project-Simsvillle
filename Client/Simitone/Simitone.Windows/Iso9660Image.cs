@@ -56,10 +56,8 @@ namespace Simitone.Windows
                 foreach (var file in files)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var relative = file.RelativePath.Replace('/', Path.DirectorySeparatorChar);
-                    if (relative.Length == 0 || relative.Contains(".." + Path.DirectorySeparatorChar) || Path.IsPathRooted(relative))
-                        throw new InvalidDataException("The disc image contains an unsafe path.");
-                    var target = Path.Combine(destination, relative);
+                    var relative = SafeRelative(file.RelativePath);
+                    var target = CreatePath(Path.Combine(destination, relative));
                     progress?.Report(new IsoExtractProgress
                     {
                         CurrentFile = file.RelativePath,
@@ -71,11 +69,19 @@ namespace Simitone.Windows
                         Directory.CreateDirectory(target);
                         continue;
                     }
-                    Directory.CreateDirectory(Path.GetDirectoryName(target));
+                    if (file.Interleaved)
+                        throw new InvalidDataException(file.RelativePath + " is stored in interleaved sectors, which this extractor cannot copy.");
+                    if (file.Continued)
+                        throw new InvalidDataException(file.RelativePath + " is split across multiple extents, which this extractor cannot copy.");
+                    var skip = (long)file.XaBlocks * LogicalBlockSize;
+                    if (skip > file.Length)
+                        throw new InvalidDataException(file.RelativePath + " has a broken extended-attribute length.");
+                    var folder = Path.GetDirectoryName(target);
+                    if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
                     using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
                     {
-                        long remaining = file.Length;
-                        long offset = 0;
+                        long remaining = file.Length - skip;
+                        long offset = skip;
                         while (remaining > 0)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
@@ -139,13 +145,18 @@ namespace Simitone.Windows
                 }
                 else
                 {
+                    var payload = child.Length - ((long)child.XaBlocks * LogicalBlockSize);
+                    if (payload < 0) payload = 0;
                     files.Add(new IsoFile
                     {
                         RelativePath = path,
                         Extent = child.Extent,
-                        Length = child.Length
+                        Length = child.Length,
+                        XaBlocks = child.XaBlocks,
+                        Interleaved = child.Interleaved,
+                        Continued = child.Continued
                     });
-                    total += child.Length;
+                    total += payload;
                 }
             }
         }
@@ -210,6 +221,9 @@ namespace Simitone.Windows
                 return new ImageLayout { SectorStride = LogicalBlockSize, HeaderSkip = 0 };
             if (HasIdentifier(stream, 16L * 2352 + 16))
                 return new ImageLayout { SectorStride = 2352, HeaderSkip = 16 };
+            // Mode 2 form 1 keeps the same 2048-byte user data, 8 bytes further in.
+            if (HasIdentifier(stream, 16L * 2352 + 24))
+                return new ImageLayout { SectorStride = 2352, HeaderSkip = 24 };
             throw new InvalidDataException("This file is not an ISO 9660 or BIN disc image.");
         }
 
@@ -266,10 +280,15 @@ namespace Simitone.Windows
             {
                 Extent = ReadUInt32(data, offset + 2),
                 Length = ReadUInt32(data, offset + 10),
-                Directory = (data[offset + 25] & 0x02) != 0
+                XaBlocks = data[offset + 1],
+                Directory = (data[offset + 25] & 0x02) != 0,
+                Interleaved = data[offset + 26] != 0,
+                Continued = (data[offset + 25] & 0x80) != 0
             };
             int nameLength = data[offset + 32];
             int nameStart = offset + 33;
+            if (nameStart + nameLength > data.Length)
+                throw new InvalidDataException("The disc image has a broken directory entry.");
             if (nameLength == 1 && (data[nameStart] == 0 || data[nameStart] == 1))
             {
                 record.Skip = true;
@@ -277,7 +296,10 @@ namespace Simitone.Windows
             }
             string name;
             if (joliet)
-                name = Encoding.BigEndianUnicode.GetString(data, nameStart, nameLength).TrimEnd('\0');
+            {
+                if ((nameLength & 1) != 0) nameLength--;
+                name = nameLength <= 0 ? "" : Encoding.BigEndianUnicode.GetString(data, nameStart, nameLength).TrimEnd('\0');
+            }
             else
                 name = Encoding.ASCII.GetString(data, nameStart, nameLength).Trim();
             var version = name.LastIndexOf(';');
@@ -308,7 +330,7 @@ namespace Simitone.Windows
                 {
                     byte flags = data[sys + 4];
                     if ((flags & 0x06) == 0)
-                        builder.Append(Encoding.ASCII.GetString(data, sys + 5, entryLength - 5));
+                        builder.Append(Encoding.GetEncoding("iso-8859-1").GetString(data, sys + 5, entryLength - 5));
                 }
                 sys += entryLength;
             }
@@ -351,6 +373,27 @@ namespace Simitone.Windows
             }
         }
 
+        static string SafeRelative(string relative)
+        {
+            if (string.IsNullOrEmpty(relative) || Path.IsPathRooted(relative))
+                throw new InvalidDataException("The disc image contains an unsafe path.");
+            var parts = relative.Split(new[] { '/', '\\' }, StringSplitOptions.None);
+            foreach (var part in parts)
+            {
+                if (part.Length == 0 || part == "." || part == "..")
+                    throw new InvalidDataException("The disc image contains an unsafe path.");
+            }
+            return string.Join(Path.DirectorySeparatorChar.ToString(), parts);
+        }
+
+        static string CreatePath(string path)
+        {
+            var full = Path.GetFullPath(path);
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT && full.Length >= 240 && !full.StartsWith(@"\\?\"))
+                return @"\\?\" + full;
+            return full;
+        }
+
         static uint ReadUInt32(byte[] data, int offset)
         {
             return (uint)(data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24));
@@ -380,6 +423,9 @@ namespace Simitone.Windows
             public string Name;
             public bool Directory;
             public bool Skip;
+            public bool Interleaved;
+            public bool Continued;
+            public byte XaBlocks;
             public uint Extent;
             public uint Length;
             public IsoDirectory Parent;
@@ -390,6 +436,9 @@ namespace Simitone.Windows
         {
             public string RelativePath;
             public bool Directory;
+            public bool Interleaved;
+            public bool Continued;
+            public byte XaBlocks;
             public uint Extent;
             public uint Length;
         }

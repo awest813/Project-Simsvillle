@@ -355,9 +355,15 @@ namespace Simitone.Windows
                 _status.ForeColor = Color.FromArgb(20, 110, 50);
                 _play.Enabled = true;
             }
+            else if (string.IsNullOrWhiteSpace(_path.Text))
+            {
+                _status.Text = "Choose the installed game folder, or use ISO to extract a disc image of that install.";
+                _status.ForeColor = SystemColors.GrayText;
+                _play.Enabled = false;
+            }
             else
             {
-                _status.Text = "Choose the folder that contains GameData\\Behavior.iff, or use ISO to extract a disc image of the installed game.";
+                _status.Text = "That folder does not contain GameData\\Behavior.iff. Choose the install, or use ISO for a disc image of it.";
                 _status.ForeColor = Color.FromArgb(160, 40, 40);
                 _play.Enabled = false;
             }

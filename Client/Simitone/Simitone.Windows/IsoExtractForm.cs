@@ -15,6 +15,7 @@ namespace Simitone.Windows
         readonly Label _label;
         readonly ProgressBar _bar;
         readonly CancellationTokenSource _cancel = new CancellationTokenSource();
+        bool _started;
 
         public static void Run(IWin32Window owner, string imagePath, string destination)
         {
@@ -43,8 +44,27 @@ namespace Simitone.Windows
                 throw new InvalidDataException("The image was extracted, but GameData\\Behavior.iff was not in the result.");
             }
 
-            if (Directory.Exists(destination)) Directory.Delete(destination, true);
-            Directory.Move(staging, destination);
+            if (!Directory.Exists(destination))
+            {
+                Directory.Move(staging, destination);
+                return;
+            }
+
+            // Keep the previous extract until the new one is in place.
+            var backup = destination + ".previous";
+            TryDelete(backup);
+            Directory.Move(destination, backup);
+            try
+            {
+                Directory.Move(staging, destination);
+            }
+            catch
+            {
+                if (!Directory.Exists(destination) && Directory.Exists(backup))
+                    Directory.Move(backup, destination);
+                throw;
+            }
+            TryDelete(backup);
         }
 
         IsoExtractForm(string imagePath, string staging)
@@ -80,14 +100,19 @@ namespace Simitone.Windows
             };
             cancel.Click += (sender, args) =>
             {
-                Cancelled = true;
                 _cancel.Cancel();
                 cancel.Enabled = false;
+                _label.Text = "Cancelling...";
             };
             Controls.Add(_label);
             Controls.Add(_bar);
             Controls.Add(cancel);
-            Shown += (sender, args) => Begin(imagePath, staging);
+            Shown += (sender, args) =>
+            {
+                if (_started) return;
+                _started = true;
+                Begin(imagePath, staging);
+            };
         }
 
         void Begin(string imagePath, string staging)
