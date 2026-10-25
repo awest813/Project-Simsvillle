@@ -422,20 +422,37 @@ namespace Simitone.Client.UI.Screens
             Visible = World?.Visible != false && World?.State.Cameras.HideUI != true;
             GameFacade.Game.IsMouseVisible = Visible;
 
-            var numLock = state.KeyboardState.NumLock;
-            if (state.NewKeys.Contains(Keys.D1) || (numLock && state.NewKeys.Contains(Keys.NumPad1))) ChangeSpeedTo(1);
-            if (state.NewKeys.Contains(Keys.D2) || (numLock && state.NewKeys.Contains(Keys.NumPad2))) ChangeSpeedTo(2);
-            if (state.NewKeys.Contains(Keys.D3) || (numLock && state.NewKeys.Contains(Keys.NumPad3))) ChangeSpeedTo(3);
-            if (state.NewKeys.Contains(Keys.P) || (numLock && state.NewKeys.Contains(Keys.NumPad0))) ChangeSpeedTo(0);
-            if (state.NewKeys.Contains(Keys.D0))
+            // A modal dialog and the cheat box both need the keyboard. Speed keys would
+            // otherwise change the lot while the player is answering a prompt.
+            var blockKeys = Frontend?.CheatTextbox != null && Frontend.CheatTextbox.Visible;
+            if (!blockKeys)
             {
-                //frame advance
-                ChangeSpeedTo(1);
-                GameThread.NextUpdate((FSO.Common.Rendering.Framework.Model.UpdateState ustate) => ChangeSpeedTo(0));
+                foreach (var child in Children)
+                {
+                    if (child is UIBlocker)
+                    {
+                        blockKeys = true;
+                        break;
+                    }
+                }
+            }
+            if (!blockKeys)
+            {
+                var numLock = state.KeyboardState.NumLock;
+                if (state.NewKeys.Contains(Keys.D1) || (numLock && state.NewKeys.Contains(Keys.NumPad1))) ChangeSpeedTo(1);
+                if (state.NewKeys.Contains(Keys.D2) || (numLock && state.NewKeys.Contains(Keys.NumPad2))) ChangeSpeedTo(2);
+                if (state.NewKeys.Contains(Keys.D3) || (numLock && state.NewKeys.Contains(Keys.NumPad3))) ChangeSpeedTo(3);
+                if (state.NewKeys.Contains(Keys.P) || (numLock && state.NewKeys.Contains(Keys.NumPad0))) ChangeSpeedTo(0);
+                if (state.NewKeys.Contains(Keys.D0))
+                {
+                    //frame advance
+                    ChangeSpeedTo(1);
+                    GameThread.NextUpdate((FSO.Common.Rendering.Framework.Model.UpdateState ustate) => ChangeSpeedTo(0));
+                }
             }
             base.Update(state);
 
-            if (state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.F12) && GraphicsModeControl.Mode != GlobalGraphicsMode.Full2D)
+            if (!blockKeys && state.NewKeys.Contains(Microsoft.Xna.Framework.Input.Keys.F12) && GraphicsModeControl.Mode != GlobalGraphicsMode.Full2D)
             {
                 GraphicsModeControl.ChangeMode((GraphicsModeControl.Mode == GlobalGraphicsMode.Full3D) ? GlobalGraphicsMode.Hybrid2D : GlobalGraphicsMode.Full3D);
             }

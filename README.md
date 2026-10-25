@@ -23,13 +23,13 @@ git submodule update --init --recursive
 
 Open `Client/Simitone/Simitone.sln` in Visual Studio 2022 or later with the .NET 9 SDK, and build `Simitone.Windows`. A legitimate The Sims 1 install is required to run the game.
 
-If the install is not in the default location and the Maxis registry key is missing, pass it explicitly. The folder must contain `GameData\Behavior.iff`:
+Double-click `Simitone.exe` to open the launcher. Choose the The Sims folder that contains `GameData\Behavior.iff`, then press Play. The folder, language, resolution, window, and renderer are remembered.
+
+`-nolauncher` skips that window when the saved or detected folder is already valid. `-path`, `-dx`, `-gl`, `-3d`, `-aa`, and `-lang` still override the saved settings:
 
 ```
-Simitone.exe -path"C:\Path\To\The Sims\"
+Simitone.exe -nolauncher -path"C:\Path\To\The Sims\"
 ```
-
-Simitone shows an error and exits when that file is not found.
 
 # Purpose
 

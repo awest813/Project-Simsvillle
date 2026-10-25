@@ -44,79 +44,113 @@ namespace Simitone.Windows
             else
                 gameLocator = new WindowsLocator();
 
-            var useDX = !linux;
-            var path = gameLocator.FindTheSims1();
-
-
             FSOEnvironment.Enable3D = false;
             bool ide = false;
             bool aa = false;
             bool jit = false;
+            bool nolauncher = false;
+            bool? directXArg = null;
+            bool enable3dArg = false;
+            byte? langArg = null;
+            int? hzArg = null;
+            string pathArg = null;
             #region User resolution parmeters
 
             FSOEnvironment.Args = string.Join(" ", args);
 
             foreach (var arg in args)
             {
-                if (arg[0] == '-')
+                if (arg.Length == 0 || arg[0] != '-') continue;
+                var cmd = arg.Substring(1);
+                if (cmd.StartsWith("lang"))
                 {
-                    var cmd = arg.Substring(1);
-                    if (cmd.StartsWith("lang"))
+                    langArg = byte.Parse(cmd.Substring(4));
+                }
+                else if (cmd.StartsWith("hz")) hzArg = int.Parse(cmd.Substring(2));
+                else
+                {
+                    //normal style param
+                    switch (cmd)
                     {
-                        GlobalSettings.Default.LanguageCode = byte.Parse(cmd.Substring(4));
-                    }
-                    else if (cmd.StartsWith("hz")) GlobalSettings.Default.TargetRefreshRate = int.Parse(cmd.Substring(2));
-                    else
-                    {
-                        //normal style param
-                        switch (cmd)
-                        {
-                            case "ide":
-                                ide = true;
-                                break;
-                            case "3d":
-                                FSOEnvironment.Enable3D = true;
-                                break;
-                            case "aa":
-                                aa = true;
-                                break;
-                            case "jit":
-                                jit = true;
-                                break;
-                            case "dx":
-                            case "dx11":
-                                useDX = true;
-                                break;
-                            case "gl":
-                            case "ogl":
-                                useDX = false;
-                                break;
-                            case "touch":
-                                FSOEnvironment.SoftwareKeyboard = true;
-                                break;
-                            case "nosound":
-                                FSOEnvironment.NoSound = true;
-                                break;
-                            case string s when s.StartsWith("path"): //The Sims path
-                                path = s.Length > 4 ? s.Substring(4).Trim('"').Replace('\\', '/') + "/" : path;
-                                break;
-                        }
+                        case "ide":
+                            ide = true;
+                            break;
+                        case "3d":
+                            enable3dArg = true;
+                            break;
+                        case "aa":
+                            aa = true;
+                            break;
+                        case "jit":
+                            jit = true;
+                            break;
+                        case "dx":
+                        case "dx11":
+                            directXArg = true;
+                            break;
+                        case "gl":
+                        case "ogl":
+                            directXArg = false;
+                            break;
+                        case "touch":
+                            FSOEnvironment.SoftwareKeyboard = true;
+                            break;
+                        case "nosound":
+                            FSOEnvironment.NoSound = true;
+                            break;
+                        case "nolauncher":
+                            nolauncher = true;
+                            break;
+                        case string s when s.StartsWith("path"): //The Sims path
+                            pathArg = s.Length > 4 ? s.Substring(4) : null;
+                            break;
                     }
                 }
             }
             #endregion
-            if (!IsValidSims1Install(path))
+
+            // Settings are stored under Documents/Simitone. Set that before the first GlobalSettings read,
+            // or config.ini is created in the working directory.
+            FSOEnvironment.UserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Simitone/").Replace('\\', '/');
+            Directory.CreateDirectory(FSOEnvironment.UserDir);
+
+            var prefs = LauncherPreferences.Load(FSOEnvironment.UserDir);
+            var settings = GlobalSettings.Default;
+            var path = FirstValidSimsPath(pathArg, settings.StartupPath, gameLocator.FindTheSims1());
+            var useDX = directXArg ?? prefs.DirectX;
+            if (linux) useDX = false;
+
+            var choice = new LauncherChoice
             {
-                MessageBox.Show(
-                    "The Sims 1 was not found, or the folder is not a playable install.\n\n" +
-                    "Simitone needs a Complete Collection or Legacy Collection folder that contains GameData\\Behavior.iff.\n\n" +
-                    "Pass it on the command line:\n" +
-                    "Simitone.exe -path\"C:\\Path\\To\\The Sims\\\"",
-                    "Simitone",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                return;
+                SimsPath = path,
+                LanguageCode = langArg ?? (settings.LanguageCode == 0 ? (byte)1 : settings.LanguageCode),
+                Width = settings.GraphicsWidth > 0 ? settings.GraphicsWidth : 1024,
+                Height = settings.GraphicsHeight > 0 ? settings.GraphicsHeight : 768,
+                Windowed = settings.Windowed,
+                Enable3D = enable3dArg || prefs.Enable3D,
+                AntiAlias = aa || settings.AntiAlias > 0,
+                DirectX = useDX
+            };
+
+            if (!nolauncher || !Sims1Install.IsValid(choice.SimsPath))
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                using (var launcher = new LauncherForm(choice, linux))
+                {
+                    if (launcher.ShowDialog() != DialogResult.OK) return;
+                    choice = launcher.Choice;
+                }
             }
+
+            if (!Sims1Install.IsValid(choice.SimsPath)) return;
+
+            useDX = choice.DirectX && !linux;
+            FSOEnvironment.Enable3D = choice.Enable3D;
+            prefs.DirectX = useDX;
+            prefs.Enable3D = choice.Enable3D;
+            prefs.Save(FSOEnvironment.UserDir);
+
             useDX = MonogameLinker.Link(useDX);
 
             FSO.Files.ImageLoaderHelpers.BitmapFunction = BitmapReader;
@@ -125,43 +159,51 @@ namespace Simitone.Windows
             FSOEnvironment.SoftwareDepth = false;
             FSOEnvironment.UseMRT = true;
 
-            if (path != null)
-            {
-                FSOEnvironment.ContentDir = "Content/";
-                FSOEnvironment.GFXContentDir = "Content/" + (useDX ? "DX/" : "OGL/");
-                FSOEnvironment.UserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Simitone/").Replace('\\', '/');
-                Directory.CreateDirectory(FSOEnvironment.UserDir);
-                FSOEnvironment.Linux = false;
-                FSOEnvironment.DirectX = useDX;
-                FSOEnvironment.GameThread = Thread.CurrentThread;
-                if (GlobalSettings.Default.LanguageCode == 0) GlobalSettings.Default.LanguageCode = 1;
-                FSO.Files.Formats.IFF.Chunks.STR.DefaultLangCode = (FSO.Files.Formats.IFF.Chunks.STRLangCode)GlobalSettings.Default.LanguageCode;
+            FSOEnvironment.ContentDir = "Content/";
+            FSOEnvironment.GFXContentDir = "Content/" + (useDX ? "DX/" : "OGL/");
+            FSOEnvironment.Linux = false;
+            FSOEnvironment.DirectX = useDX;
+            FSOEnvironment.GameThread = Thread.CurrentThread;
 
-                GlobalSettings.Default.StartupPath = path;
-                GlobalSettings.Default.TS1HybridEnable = true;
-                GlobalSettings.Default.TS1HybridPath = path;
-                GlobalSettings.Default.ClientVersion = "0";
-                GlobalSettings.Default.LightingMode = 3;
-                GlobalSettings.Default.AntiAlias = aa ? 1 : 0;
-                GlobalSettings.Default.ComplexShaders = true;
-                GlobalSettings.Default.EnableTransitions = true;
+            settings.LanguageCode = choice.LanguageCode == 0 ? (byte)1 : choice.LanguageCode;
+            FSO.Files.Formats.IFF.Chunks.STR.DefaultLangCode = (FSO.Files.Formats.IFF.Chunks.STRLangCode)settings.LanguageCode;
 
-                if (ide) new FSO.IDE.VolcanicStartProxy().InitVolcanic(args);
+            settings.StartupPath = choice.SimsPath;
+            settings.TS1HybridEnable = true;
+            settings.TS1HybridPath = choice.SimsPath;
+            settings.ClientVersion = "0";
+            settings.LightingMode = 3;
+            settings.AntiAlias = choice.AntiAlias ? 1 : 0;
+            settings.ComplexShaders = true;
+            settings.EnableTransitions = true;
+            settings.Windowed = choice.Windowed;
+            settings.GraphicsWidth = Math.Max(1, choice.Width);
+            settings.GraphicsHeight = Math.Max(1, choice.Height);
+            if (hzArg != null) settings.TargetRefreshRate = hzArg.Value;
+            settings.Save();
 
-                var assemblies = new FSO.SimAntics.JIT.Runtime.AssemblyStore();
-                //var globals = new TS1.Scripts.Dummy(); //make sure scripts assembly is loaded
-                if (jit) assemblies.InitAOT();
-                FSO.SimAntics.Engine.VMTranslator.INSTANCE = new FSO.SimAntics.JIT.Runtime.VMAOTTranslator(assemblies);
+            if (ide) new FSO.IDE.VolcanicStartProxy().InitVolcanic(args);
 
-                var start = new GameStartProxy();
-                start.Start(useDX);
-            }
+            var assemblies = new FSO.SimAntics.JIT.Runtime.AssemblyStore();
+            //var globals = new TS1.Scripts.Dummy(); //make sure scripts assembly is loaded
+            if (jit) assemblies.InitAOT();
+            FSO.SimAntics.Engine.VMTranslator.INSTANCE = new FSO.SimAntics.JIT.Runtime.VMAOTTranslator(assemblies);
+
+            var start = new GameStartProxy();
+            start.Start(useDX);
         }
 
-        private static bool IsValidSims1Install(string path)
+        private static string FirstValidSimsPath(string pathArg, string savedPath, string locatedPath)
         {
-            if (string.IsNullOrWhiteSpace(path)) return false;
-            return File.Exists(Path.Combine(path, "GameData", "Behavior.iff"));
+            var fromArg = Sims1Install.Normalize(pathArg);
+            if (!string.IsNullOrEmpty(fromArg)) return fromArg;
+            var saved = Sims1Install.Normalize(savedPath);
+            if (Sims1Install.IsValid(saved)) return saved;
+            var located = Sims1Install.Normalize(locatedPath);
+            if (Sims1Install.IsValid(located)) return located;
+            if (!string.IsNullOrEmpty(fromArg)) return fromArg;
+            if (!string.IsNullOrEmpty(saved)) return saved;
+            return located;
         }
 
         private static System.Reflection.Assembly OnAssemblyResolve(object sender, ResolveEventArgs args)

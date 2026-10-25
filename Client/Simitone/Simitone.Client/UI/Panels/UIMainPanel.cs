@@ -1,4 +1,5 @@
 ﻿using FSO.Client;
+using FSO.Common;
 using FSO.Client.UI.Framework;
 using FSO.Common.Utils;
 using FSO.Content;
@@ -258,6 +259,8 @@ namespace Simitone.Client.UI.Panels
         {
             var settings = GlobalSettings.Default;
             var edge = settings.EdgeScroll ? "Edge Scroll On" : "Edge Scroll Off";
+            var graphics = GameFacade.GraphicsDeviceManager;
+            var windowed = graphics == null || !graphics.IsFullScreen;
 
             return new UIButtonSubpanel(Game, new UICatFunc[]
             {
@@ -283,6 +286,14 @@ namespace Simitone.Client.UI.Panels
                     var hit = HITVM.Get();
                     hit.SetMasterVolume(HITVolumeGroup.FX, next / 10f);
                     hit.SetMasterVolume(HITVolumeGroup.VOX, next / 10f);
+                    Switcher_OnCategorySelect(1);
+                }),
+                new UICatFunc(windowed ? "Windowed" : "Full Screen", "mode_options.png", () =>
+                {
+                    if (graphics == null || FSOEnvironment.SoftwareKeyboard) return;
+                    settings.Windowed = graphics.IsFullScreen;
+                    graphics.ToggleFullScreen();
+                    settings.Save();
                     Switcher_OnCategorySelect(1);
                 }),
             });
