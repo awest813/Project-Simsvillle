@@ -90,7 +90,8 @@ namespace Simitone.Client.UI.Panels
 
         //1 = near, 0.5 = med, 0.25 = far
         //"target" because we rescale the game target to fit this zoom level.
-        public float TargetZoom = 1; 
+        public float TargetZoom = 1;
+        public bool FollowSelected; 
 
         // NOTE: Blocking dialog system assumes that nothing goes wrong with data transmission (which it shouldn't, because we're using TCP)
         // and that the code actually blocks further dialogs from appearing while waiting for a response.
@@ -781,6 +782,8 @@ namespace Simitone.Client.UI.Panels
                 avatar.Avatar.HeadObjectRotation += 3f / FSOEnvironment.RefreshRate;
                 if (isActive)
                 {
+                    if (FollowSelected && avatar.WorldUI is AvatarComponent follow)
+                        World.State.ScrollAnchor = follow;
                     avatar.Avatar.HeadObjectRotation += avatar.Avatar.HeadObjectSpeedyVel;
                     avatar.Avatar.HeadObjectSpeedyVel *= 0.98f;
                 } else if (avatar.GetValue(FSO.SimAntics.Model.VMStackObjectVariable.Category) == 87)
@@ -808,8 +811,14 @@ namespace Simitone.Client.UI.Panels
 
                 World.State.Cameras.CameraFirstPerson.CaptureMouse = true;
 
+                if (state.NewKeys.Contains(Keys.F) && (GameFacade.Screens.CurrentUIScreen as TS1GameScreen)?.Frontend?.CheatTextbox?.Visible != true)
+                {
+                    FollowSelected = !FollowSelected;
+                }
+
                 if (RMBScroll)
                 {
+                    FollowSelected = false;
                     World.State.ScrollAnchor = null;
                     Vector2 scrollBy = new Vector2();
                     if (state.TouchMode)
@@ -859,7 +868,7 @@ namespace Simitone.Client.UI.Panels
                     }
                     else
                     {
-                        if (!scrolled && GlobalSettings.Default.EdgeScroll && !state.TouchMode) scrolled = World.TestScroll(state);
+                        if (!scrolled && !FollowSelected && GlobalSettings.Default.EdgeScroll && !state.TouchMode) scrolled = World.TestScroll(state);
                     }
                 }
 
