@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The disc image reader and install lookup have no Windows dependencies, so these tests run on any OS:
+  <!-- The disc image reader, install lookup and display lists have no Windows dependencies, so these tests run on any OS:
        dotnet test Client/Simitone/Simitone.Windows.Tests -->
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -12,6 +12,7 @@
   <ItemGroup>
     <Compile Include="..\Simitone.Windows\Iso9660Image.cs" Link="Iso9660Image.cs" />
     <Compile Include="..\Simitone.Windows\Sims1Install.cs" Link="Sims1Install.cs" />
+    <Compile Include="..\Simitone.Windows\DisplayModes.cs" Link="DisplayModes.cs" />
   </ItemGroup>
 
   <ItemGroup>

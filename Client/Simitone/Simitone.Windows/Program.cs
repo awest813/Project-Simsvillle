@@ -139,6 +139,7 @@ namespace Simitone.Windows
                 LanguageCode = langArg ?? (settings.LanguageCode == 0 ? (byte)1 : settings.LanguageCode),
                 Width = settings.GraphicsWidth > 0 ? settings.GraphicsWidth : 1024,
                 Height = settings.GraphicsHeight > 0 ? settings.GraphicsHeight : 768,
+                RefreshRate = hzArg ?? (settings.TargetRefreshRate > 0 ? settings.TargetRefreshRate : 60),
                 Windowed = settings.Windowed,
                 Enable3D = enable3dArg || prefs.Enable3D,
                 AntiAlias = aa || settings.AntiAlias > 0,
@@ -192,7 +193,7 @@ namespace Simitone.Windows
             settings.Windowed = choice.Windowed;
             settings.GraphicsWidth = Math.Max(1, choice.Width);
             settings.GraphicsHeight = Math.Max(1, choice.Height);
-            if (hzArg != null) settings.TargetRefreshRate = hzArg.Value;
+            settings.TargetRefreshRate = choice.RefreshRate > 0 ? choice.RefreshRate : 60;
             settings.Save();
 
             if (ide) new FSO.IDE.VolcanicStartProxy().InitVolcanic(args);

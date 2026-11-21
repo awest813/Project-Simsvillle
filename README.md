@@ -16,10 +16,12 @@ NOTE! Currently does not support the entire Fame career track, saving on vacatio
 You need a legitimate copy of The Sims 1 (Complete Collection or Legacy Collection) and Windows.
 
 1. Start `Simitone.exe`. The launcher opens.
-2. If the game is already installed, choose the folder that contains `GameData\Behavior.iff` and press Play.
+2. If the game is already installed, choose the folder that contains `GameData\Behavior.iff` and press Play. Picking the `GameData` folder, or the folder just above the install, also works.
 3. If you only have a disc image of that install, press **ISO...** and choose the `.iso`, `.bin`, or `.img` file. Simitone copies the game out to `Documents\Simitone\Extracted` and selects that folder.
 
-A setup disc is not enough on its own. The image has to already contain the installed game files. Language, resolution, window mode, and DirectX or OpenGL are remembered for the next launch.
+You can also drop a folder or a disc image onto the launcher window. A setup disc is not enough on its own. The image has to already contain the installed game files.
+
+The launcher lists the resolutions your display supports and frame rates up to its refresh rate. Language, resolution, frame rate, window mode, and DirectX or OpenGL are remembered for the next launch. **Open the Simitone folder** shows where extracts, lot exports, and settings are kept.
 
 `-nolauncher` skips the window when a valid folder is already known:
 
