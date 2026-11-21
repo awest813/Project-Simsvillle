@@ -208,7 +208,7 @@ namespace Simitone.Windows
 
         private static string FirstValidSimsPath(string pathArg, string savedPath, string locatedPath)
         {
-            var fromArg = Sims1Install.Normalize(pathArg);
+            var fromArg = Sims1Install.Normalize(Sims1Install.FindNear(pathArg) ?? pathArg);
             if (!string.IsNullOrEmpty(fromArg)) return fromArg;
             var saved = Sims1Install.Normalize(savedPath);
             if (Sims1Install.IsValid(saved)) return saved;

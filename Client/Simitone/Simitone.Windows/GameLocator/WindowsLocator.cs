@@ -38,32 +38,52 @@ namespace Simitone.Windows.GameLocator
 
         public string FindTheSims1()
         {
-            // Search relative directory similar to how macOS and Linux works; allows portability
-            string localDir = @"../The Sims/";
-            if (File.Exists(Path.Combine(localDir, "GameData", "Behavior.iff"))) return localDir;
-
-            using (var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32))
+            // Try each source in turn and keep the first one that holds the game. An old registry
+            // entry from an uninstalled disc copy must not hide a Legacy Collection install.
+            var candidates = new List<string>
             {
-                //Find the path to TS1 on the user's system.
-                RegistryKey softwareKey = hklm.OpenSubKey("SOFTWARE");
+                // Relative directory, like macOS and Linux. Allows a portable setup.
+                "../The Sims/",
+                FindTheSimsRegistry(),
+                FindTheSimsLegacySteam(),
+                @"C:\Program Files (x86)\Maxis\The Sims\",
+                @"C:\Program Files\Maxis\The Sims\"
+            };
 
-                if (Array.Exists(softwareKey.GetSubKeyNames(), delegate (string s) { return s.Equals("Maxis", StringComparison.InvariantCultureIgnoreCase); }))
+            foreach (var candidate in candidates)
+            {
+                if (string.IsNullOrWhiteSpace(candidate)) continue;
+                if (File.Exists(Path.Combine(candidate, "GameData", "Behavior.iff")))
+                    return Normalize(candidate);
+            }
+
+            // Nothing holds the game. Show the registry path if there is one, so the launcher
+            // points at the folder the player most likely expects.
+            return Normalize(candidates[1] ?? candidates[3]);
+        }
+
+        private static string Normalize(string path)
+        {
+            path = path.Replace('\\', '/');
+            return path.EndsWith("/") ? path : path + "/";
+        }
+
+        private static string FindTheSimsRegistry()
+        {
+            try
+            {
+                using (var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32))
+                using (var key = hklm.OpenSubKey(@"SOFTWARE\Maxis\The Sims"))
                 {
-                    RegistryKey maxisKey = softwareKey.OpenSubKey("Maxis");
-                    if (Array.Exists(maxisKey.GetSubKeyNames(), delegate (string s) { return s.Equals("The Sims", StringComparison.InvariantCultureIgnoreCase); }))
-                    {
-                        RegistryKey tsoKey = maxisKey.OpenSubKey("The Sims");
-                        string installDir = (string)tsoKey.GetValue("InstallPath");
-                        installDir += "\\";
-                        return installDir.Replace('\\', '/');
-                    }
+                    var installDir = key?.GetValue("InstallPath") as string;
+                    return string.IsNullOrWhiteSpace(installDir) ? null : installDir;
                 }
             }
-            // Check for Steam Legacy Collection install
-            if (FindTheSimsLegacySteam() is string steamInstallDir) return steamInstallDir;
-
-            // Fall back to the default install location if the other two checks fail
-            return @"C:\Program Files (x86)\Maxis\The Sims\".Replace('\\', '/');
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception while reading The Sims registry path: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -71,11 +91,11 @@ namespace Simitone.Windows.GameLocator
         /// </summary>
         /// <param name="steamAppId">Steam App ID, default is The Sims: Legacy Collection</param>
         /// <returns>Full path if found, null otherwise</returns>
-        private string FindTheSimsLegacySteam(int steamAppId = 3314060)
+        private static string FindTheSimsLegacySteam(int steamAppId = 3314060)
         {
             try
             {
-                return SteamGameLocator.GetGamePath(steamAppId) ?? null;
+                return SteamGameLocator.GetGamePath(steamAppId);
             }
             catch (Exception ex)
             {

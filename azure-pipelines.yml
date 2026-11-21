@@ -63,7 +63,7 @@ steps:
     configuration: '$(buildConfiguration)'
 
 - script: dotnet test ./Client/Simitone/Simitone.Windows.Tests/Simitone.Windows.Tests.csproj --configuration $(buildConfiguration)
-  displayName: Disc image tests
+  displayName: Launcher tests
 
 - task: PublishBuildArtifacts@1
   inputs:

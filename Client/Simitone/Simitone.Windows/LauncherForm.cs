@@ -343,7 +343,7 @@ namespace Simitone.Windows
                 var current = _path.Text.Trim().TrimEnd('/', '\\');
                 if (Directory.Exists(current)) dialog.SelectedPath = current;
                 if (dialog.ShowDialog(this) == DialogResult.OK)
-                    _path.Text = dialog.SelectedPath;
+                    _path.Text = Sims1Install.FindNear(dialog.SelectedPath) ?? dialog.SelectedPath;
             }
         }
 
