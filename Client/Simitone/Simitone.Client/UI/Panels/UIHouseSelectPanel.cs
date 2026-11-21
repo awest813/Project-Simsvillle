@@ -391,15 +391,17 @@ namespace Simitone.Client.UI.Panels
                     {
                         dialog.Close();
                         var screen = (TS1GameScreen)UIScreen.Current;
-                        if (!screen.RezoneLot((short)HouseID, current == 0 ? (short)1 : (short)0))
+                        string failure = null;
+                        try
                         {
-                            UIScreen.GlobalShowDialog(new UIMobileAlert(new UIAlertOptions()
-                            {
-                                Title = "Rezone",
-                                Message = "This lot has no entry in LotZoning.iff, so it was left unchanged.",
-                                Buttons = UIAlertButton.Ok()
-                            }), true);
+                            if (!screen.RezoneLot((short)HouseID, current == 0 ? (short)1 : (short)0))
+                                failure = "This lot has no entry in LotZoning.iff, so it was left unchanged.";
                         }
+                        catch (Exception e)
+                        {
+                            failure = "LotZoning.iff could not be saved, so the lot was left unchanged.\n\n" + e.Message;
+                        }
+                        if (failure != null) ShowAlert("Rezone", failure);
                     },
                     (b) => { dialog.Close(); })
             });
@@ -409,11 +411,23 @@ namespace Simitone.Client.UI.Panels
         public void ExportLot()
         {
             var screen = (TS1GameScreen)UIScreen.Current;
-            var dest = screen.ExportHouse(HouseID);
+            try
+            {
+                var dest = screen.ExportHouse(HouseID);
+                ShowAlert("Export", "Copied this lot to " + dest);
+            }
+            catch (Exception e)
+            {
+                ShowAlert("Export", "This lot could not be copied.\n\n" + e.Message);
+            }
+        }
+
+        private static void ShowAlert(string title, string message)
+        {
             UIScreen.GlobalShowDialog(new UIMobileAlert(new UIAlertOptions()
             {
-                Title = "Export",
-                Message = "Copied this lot to " + dest,
+                Title = title,
+                Message = message,
                 Buttons = UIAlertButton.Ok()
             }), true);
         }

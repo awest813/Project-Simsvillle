@@ -20,6 +20,7 @@ namespace Simitone.Windows
     public static class Iso9660Image
     {
         const int LogicalBlockSize = 2048;
+        const long ProgressStep = 8L * 1024 * 1024;
 
         public static void ExtractSimsInstall(string imagePath, string destination, IProgress<IsoExtractProgress> progress, CancellationToken cancellationToken)
         {
@@ -73,15 +74,15 @@ namespace Simitone.Windows
                         throw new InvalidDataException(file.RelativePath + " is stored in interleaved sectors, which this extractor cannot copy.");
                     if (file.Continued)
                         throw new InvalidDataException(file.RelativePath + " is split across multiple extents, which this extractor cannot copy.");
-                    var skip = (long)file.XaBlocks * LogicalBlockSize;
-                    if (skip > file.Length)
-                        throw new InvalidDataException(file.RelativePath + " has a broken extended-attribute length.");
                     var folder = Path.GetDirectoryName(target);
                     if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
                     using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
                     {
-                        long remaining = file.Length - skip;
-                        long offset = skip;
+                        // The data length does not include the extended attribute record,
+                        // which sits in the blocks ahead of the file data.
+                        long remaining = file.Length;
+                        long offset = (long)file.XaBlocks * LogicalBlockSize;
+                        long reported = copied;
                         while (remaining > 0)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
@@ -91,6 +92,16 @@ namespace Simitone.Windows
                             remaining -= chunk;
                             offset += chunk;
                             copied += chunk;
+                            if (copied - reported >= ProgressStep)
+                            {
+                                reported = copied;
+                                progress?.Report(new IsoExtractProgress
+                                {
+                                    CurrentFile = file.RelativePath,
+                                    BytesCopied = copied,
+                                    BytesTotal = total
+                                });
+                            }
                         }
                     }
                 }
@@ -145,8 +156,6 @@ namespace Simitone.Windows
                 }
                 else
                 {
-                    var payload = child.Length - ((long)child.XaBlocks * LogicalBlockSize);
-                    if (payload < 0) payload = 0;
                     files.Add(new IsoFile
                     {
                         RelativePath = path,
@@ -156,7 +165,7 @@ namespace Simitone.Windows
                         Interleaved = child.Interleaved,
                         Continued = child.Continued
                     });
-                    total += payload;
+                    total += child.Length;
                 }
             }
         }
@@ -240,7 +249,7 @@ namespace Simitone.Windows
         {
             var record = ReadRecord(descriptor, recordOffset, joliet);
             var directory = new IsoDirectory { Name = record.Name ?? "", Extent = record.Extent, Length = record.Length };
-            directory.Children = ReadChildren(stream, layout, record.Extent, record.Length, joliet, directory, seen, 0);
+            directory.Children = ReadChildren(stream, layout, record.Extent + record.XaBlocks, record.Length, joliet, directory, seen, 0);
             return directory;
         }
 
@@ -265,7 +274,7 @@ namespace Simitone.Windows
                 if (child.Skip) continue;
                 child.Parent = parent;
                 if (child.Directory)
-                    child.Children = ReadChildren(stream, layout, child.Extent, child.Length, joliet, child, seen, depth + 1);
+                    child.Children = ReadChildren(stream, layout, child.Extent + child.XaBlocks, child.Length, joliet, child, seen, depth + 1);
                 children.Add(child);
             }
             return children;

@@ -234,7 +234,7 @@ namespace Simitone.Windows
                     return assembly;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return null;
             }

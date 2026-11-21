@@ -16,6 +16,7 @@ namespace Simitone.Windows
         readonly ProgressBar _bar;
         readonly CancellationTokenSource _cancel = new CancellationTokenSource();
         bool _started;
+        bool _finished;
 
         public static void Run(IWin32Window owner, string imagePath, string destination)
         {
@@ -107,6 +108,19 @@ namespace Simitone.Windows
             Controls.Add(_label);
             Controls.Add(_bar);
             Controls.Add(cancel);
+            // Alt+F4 still closes a form without a control box. Treat it as Cancel and
+            // wait for the copy to stop, so the caller never sees a half-written folder.
+            FormClosing += (sender, args) =>
+            {
+                if (_finished || !_started) return;
+                args.Cancel = true;
+                if (!_cancel.IsCancellationRequested)
+                {
+                    _cancel.Cancel();
+                    cancel.Enabled = false;
+                    _label.Text = "Cancelling...";
+                }
+            };
             Shown += (sender, args) =>
             {
                 if (_started) return;
@@ -134,7 +148,11 @@ namespace Simitone.Windows
                 }
                 try
                 {
-                    BeginInvoke(new Action(Close));
+                    BeginInvoke(new Action(() =>
+                    {
+                        _finished = true;
+                        Close();
+                    }));
                 }
                 catch (InvalidOperationException)
                 {

@@ -262,7 +262,9 @@ namespace Simitone.Client.UI.Screens
         {
             var neigh = Content.Get().Neighborhood;
             var path = Path.Combine(neigh.UserPath, "LotZoning.iff");
-            var iff = new IffFile(path);
+            if (!File.Exists(path)) return false;
+            // Keep the raw data of every chunk so the rewrite does not drop anything we do not parse.
+            var iff = new IffFile(path, true);
             var table = iff.Get<STR>(1);
             if (table == null) return false;
 
@@ -284,15 +286,24 @@ namespace Simitone.Client.UI.Screens
             table.SetString(found, houseID + (zone == 1 ? ", community" : ", residential"));
             var previousFormat = IffFile.TargetTS1;
             IffFile.TargetTS1 = true;
+            byte[] data;
             try
             {
-                using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
-                    iff.Write(stream);
+                // Build the whole file in memory first. A failed write must not leave a
+                // truncated LotZoning.iff, because the neighborhood will not load without it.
+                using (var buffer = new MemoryStream())
+                {
+                    iff.Write(buffer);
+                    data = buffer.ToArray();
+                }
             }
             finally
             {
                 IffFile.TargetTS1 = previousFormat;
             }
+            var temp = path + ".tmp";
+            File.WriteAllBytes(temp, data);
+            File.Move(temp, path, true);
 
             neigh.ZoningDictionary[houseID] = zone;
             RefreshHousePanel(houseID);
