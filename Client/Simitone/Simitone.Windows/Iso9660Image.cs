@@ -52,6 +52,7 @@ namespace Simitone.Windows
                 var files = new List<IsoFile>();
                 long total = 0;
                 CollectFiles(gameRoot, "", files, ref total);
+                EnsureFreeSpace(destination, total);
                 long copied = 0;
                 var buffer = new byte[1024 * 256];
                 foreach (var file in files)
@@ -112,6 +113,32 @@ namespace Simitone.Windows
                     BytesTotal = total
                 });
             }
+        }
+
+        static void EnsureFreeSpace(string destination, long needed)
+        {
+            long available;
+            try
+            {
+                var root = Path.GetPathRoot(Path.GetFullPath(destination));
+                if (string.IsNullOrEmpty(root)) return;
+                available = new DriveInfo(root).AvailableFreeSpace;
+            }
+            catch (Exception)
+            {
+                // Network paths and some mounts cannot report free space. Let the copy try.
+                return;
+            }
+            if (available < needed)
+                throw new IOException(
+                    "There is not enough free space to extract this image. It needs " + FormatSize(needed) +
+                    " and the drive has " + FormatSize(available) + " free.");
+        }
+
+        static string FormatSize(long bytes)
+        {
+            if (bytes >= 1L << 30) return (bytes / (double)(1L << 30)).ToString("0.0") + " GB";
+            return (bytes / (double)(1L << 20)).ToString("0") + " MB";
         }
 
         static IsoDirectory FindGameRoot(IsoDirectory root)

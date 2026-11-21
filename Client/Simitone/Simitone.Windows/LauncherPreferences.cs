@@ -17,7 +17,20 @@ namespace Simitone.Windows
             var path = Path.Combine(userDir, "launcher.ini");
             if (!File.Exists(path)) return prefs;
 
-            foreach (var line in File.ReadAllLines(path))
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(path);
+            }
+            catch (IOException)
+            {
+                return prefs;
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+                return prefs;
+            }
+            foreach (var line in lines)
             {
                 var clean = line.Trim();
                 var split = clean.IndexOf('=');
@@ -32,12 +45,22 @@ namespace Simitone.Windows
 
         public void Save(string userDir)
         {
-            Directory.CreateDirectory(userDir);
-            File.WriteAllLines(Path.Combine(userDir, "launcher.ini"), new[]
+            try
             {
-                "DirectX=" + DirectX,
-                "Enable3D=" + Enable3D
-            });
+                Directory.CreateDirectory(userDir);
+                File.WriteAllLines(Path.Combine(userDir, "launcher.ini"), new[]
+                {
+                    "DirectX=" + DirectX,
+                    "Enable3D=" + Enable3D
+                });
+            }
+            catch (IOException)
+            {
+                // Only the renderer choice is lost. The game can still start.
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+            }
         }
     }
 }

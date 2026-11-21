@@ -385,7 +385,7 @@ namespace Simitone.Client.UI.Panels
             dialog = new UIMobileAlert(new UIAlertOptions()
             {
                 Title = "Rezone",
-                Message = "Change this empty lot to " + nextName + "?",
+                Message = "No family lives on this lot. Rezone it as " + nextName + "?",
                 Buttons = UIAlertButton.YesNo(
                     (b) =>
                     {

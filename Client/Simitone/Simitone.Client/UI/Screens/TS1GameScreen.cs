@@ -255,7 +255,7 @@ namespace Simitone.Client.UI.Screens
         }
 
         /// <summary>
-        /// Toggles an empty main-neighborhood lot between residential (0) and community (1)
+        /// Toggles an unoccupied main-neighborhood lot between residential (0) and community (1)
         /// and writes the change back to LotZoning.iff.
         /// </summary>
         public bool RezoneLot(short houseID, short zone)

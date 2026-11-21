@@ -62,6 +62,9 @@ steps:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
 
+- script: dotnet test ./Client/Simitone/Simitone.Windows.Tests/Simitone.Windows.Tests.csproj --configuration $(buildConfiguration)
+  displayName: Disc image tests
+
 - task: PublishBuildArtifacts@1
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'

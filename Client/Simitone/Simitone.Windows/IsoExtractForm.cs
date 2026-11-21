@@ -54,7 +54,16 @@ namespace Simitone.Windows
             // Keep the previous extract until the new one is in place.
             var backup = destination + ".previous";
             TryDelete(backup);
-            Directory.Move(destination, backup);
+            try
+            {
+                Directory.Move(destination, backup);
+            }
+            catch
+            {
+                // The old folder is in use. Leave it as it was and do not keep a second full copy around.
+                TryDelete(staging);
+                throw;
+            }
             try
             {
                 Directory.Move(staging, destination);
@@ -63,6 +72,7 @@ namespace Simitone.Windows
             {
                 if (!Directory.Exists(destination) && Directory.Exists(backup))
                     Directory.Move(backup, destination);
+                TryDelete(staging);
                 throw;
             }
             TryDelete(backup);

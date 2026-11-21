@@ -39,6 +39,12 @@ git submodule update --init --recursive
 
 Open `Client/Simitone/Simitone.sln` in Visual Studio 2022 or later with the .NET 9 SDK, and build `Simitone.Windows`. `-path`, `-dx`, `-gl`, `-3d`, `-aa`, `-lang`, and `-hz` still override the saved launcher settings.
 
+The disc image reader has tests that run on any OS with the .NET 9 SDK, without the submodule:
+
+```
+dotnet test Client/Simitone/Simitone.Windows.Tests
+```
+
 # Purpose
 
 On modern operating systems, The Sims has a few nagging issues that make it less than playable. Simitone can be seen as a tool to improve the playability of your existing installation of The Sims. Here are some features:
