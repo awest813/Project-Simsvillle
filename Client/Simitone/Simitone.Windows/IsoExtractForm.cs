@@ -58,11 +58,13 @@ namespace Simitone.Windows
             {
                 Directory.Move(destination, backup);
             }
-            catch
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
                 // The old folder is in use. Leave it as it was and do not keep a second full copy around.
                 TryDelete(staging);
-                throw;
+                throw new IOException(
+                    "The previous extract could not be replaced because a file in it is open:\n\n" + destination +
+                    "\n\nClose any window or program using that folder and try again.", ex);
             }
             try
             {

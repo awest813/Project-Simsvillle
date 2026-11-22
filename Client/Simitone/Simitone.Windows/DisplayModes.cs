@@ -95,8 +95,9 @@ namespace Simitone.Windows
         }
 
         /// <summary>
-        /// Frame rates the player can pick. Common rates up to the fastest the display supports,
-        /// the display's current rate, and the saved rate.
+        /// Frame rates the player can pick: common rates up to the display's current refresh rate
+        /// (or the fastest mode it reports, when the current rate is unknown), that rate itself,
+        /// and the saved rate. Frames past the display's rate are never shown, so they are not offered.
         /// </summary>
         public static List<RefreshOption> RefreshRates(IEnumerable<DisplayMode> modes, DisplayMode? desktop, int savedRate)
         {
@@ -106,7 +107,7 @@ namespace Simitone.Windows
                 .ToList();
             var displayRate = desktop?.RefreshRate > 1 ? desktop.Value.RefreshRate : 0;
             if (displayRate > 0) reported.Add(displayRate);
-            var max = Math.Max(60, reported.Count == 0 ? 60 : reported.Max());
+            var max = Math.Max(60, displayRate > 0 ? displayRate : (reported.Count == 0 ? 60 : reported.Max()));
 
             var rates = CommonRates.Where(r => r <= max).ToList();
             if (displayRate > 0) rates.Add(displayRate);

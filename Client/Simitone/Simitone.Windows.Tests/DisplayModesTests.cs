@@ -62,6 +62,24 @@ namespace Simitone.Windows.Tests
         }
 
         [Fact]
+        public void StopsAtTheRateTheDesktopRunsAtNotTheFastestMode()
+        {
+            // A 144 Hz monitor left at 60 Hz cannot show more than 60 frames.
+            var list = DisplayModes.RefreshRates(Monitor, new DisplayMode(2560, 1440, 60), 60);
+
+            Assert.Equal(new[] { 30, 60 }, list.Select(x => x.Rate));
+        }
+
+        [Fact]
+        public void UsesTheFastestModeWhenTheDesktopRateIsUnknown()
+        {
+            var list = DisplayModes.RefreshRates(Monitor, null, 0);
+
+            Assert.Equal(144, list.Last().Rate);
+            Assert.DoesNotContain(list, r => r.Display);
+        }
+
+        [Fact]
         public void IncludesAnUnusualDisplayRateAndTheSavedRate()
         {
             var list = DisplayModes.RefreshRates(new[] { new DisplayMode(1920, 1080, 59) }, new DisplayMode(1920, 1080, 59), 200);

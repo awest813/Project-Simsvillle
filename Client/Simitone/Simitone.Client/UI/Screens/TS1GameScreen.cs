@@ -302,8 +302,19 @@ namespace Simitone.Client.UI.Screens
                 IffFile.TargetTS1 = previousFormat;
             }
             var temp = path + ".tmp";
-            File.WriteAllBytes(temp, data);
-            File.Move(temp, path, true);
+            try
+            {
+                File.WriteAllBytes(temp, data);
+                // Files copied off a disc are often read-only. Replacing one needs that cleared.
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReadOnly) != 0)
+                    File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+                File.Move(temp, path, true);
+            }
+            finally
+            {
+                if (File.Exists(temp)) File.Delete(temp);
+            }
 
             neigh.ZoningDictionary[houseID] = zone;
             RefreshHousePanel(houseID);

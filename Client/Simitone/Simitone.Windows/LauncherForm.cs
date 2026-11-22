@@ -313,7 +313,8 @@ namespace Simitone.Windows
 
         void OnDragEnter(object sender, DragEventArgs e)
         {
-            var dropped = DroppedPath(e);
+            // Nothing is accepted while an extract is running.
+            var dropped = Enabled ? DroppedPath(e) : null;
             e.Effect = dropped != null && (Directory.Exists(dropped) || IsImage(dropped))
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
@@ -321,7 +322,7 @@ namespace Simitone.Windows
 
         void OnDragDrop(object sender, DragEventArgs e)
         {
-            var dropped = DroppedPath(e);
+            var dropped = Enabled ? DroppedPath(e) : null;
             if (dropped == null) return;
             if (Directory.Exists(dropped))
                 _path.Text = Sims1Install.FindNear(dropped) ?? dropped;
@@ -425,11 +426,13 @@ namespace Simitone.Windows
         void RefreshStatus()
         {
             var text = _path.Text;
-            // Network paths are skipped while typing: a half-typed server name can block for seconds.
-            var network = text.TrimStart().StartsWith(@"\\") || text.TrimStart().StartsWith("//");
-            _resolvedPath = Sims1Install.IsValid(text) ? text : (network ? null : Sims1Install.FindNear(text));
+            // A half-typed server name can block for seconds, so network paths are only
+            // checked when the player presses Play.
+            var network = IsNetworkPath(text);
+            var valid = !network && Sims1Install.IsValid(text);
+            _resolvedPath = valid ? text : (network ? null : Sims1Install.FindNear(text));
 
-            if (Sims1Install.IsValid(text))
+            if (valid)
             {
                 _status.Text = "Found GameData\\Behavior.iff. This install can be played.";
                 _status.ForeColor = Color.FromArgb(20, 110, 50);
@@ -438,6 +441,11 @@ namespace Simitone.Windows
             {
                 _status.Text = "The game is in " + _resolvedPath + ". Play uses that folder.";
                 _status.ForeColor = Color.FromArgb(20, 110, 50);
+            }
+            else if (network)
+            {
+                _status.Text = "Network folder. It is checked when you press Play.";
+                _status.ForeColor = SystemColors.GrayText;
             }
             else if (string.IsNullOrWhiteSpace(text))
             {
@@ -449,12 +457,36 @@ namespace Simitone.Windows
                 _status.Text = "That folder does not contain GameData\\Behavior.iff. Choose the install, or use ISO for a disc image of it.";
                 _status.ForeColor = Color.FromArgb(160, 40, 40);
             }
-            _play.Enabled = _resolvedPath != null;
+            _play.Enabled = _resolvedPath != null || network;
+        }
+
+        static bool IsNetworkPath(string text)
+        {
+            var trimmed = (text ?? "").TrimStart().TrimStart('"');
+            return trimmed.StartsWith(@"\\") || trimmed.StartsWith("//");
         }
 
         void Play(object sender, EventArgs e)
         {
             RefreshStatus();
+            if (_resolvedPath == null && IsNetworkPath(_path.Text))
+            {
+                Cursor = Cursors.WaitCursor;
+                try
+                {
+                    _resolvedPath = Sims1Install.FindNear(_path.Text);
+                }
+                finally
+                {
+                    Cursor = Cursors.Default;
+                }
+                if (_resolvedPath == null)
+                {
+                    _status.Text = "That network folder does not contain GameData\\Behavior.iff, or it could not be reached.";
+                    _status.ForeColor = Color.FromArgb(160, 40, 40);
+                    return;
+                }
+            }
             if (_resolvedPath == null) return;
 
             var resolution = _resolution.SelectedItem as ResolutionOption;
