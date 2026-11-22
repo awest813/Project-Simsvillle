@@ -108,6 +108,23 @@ namespace Simitone.Windows.Tests
         }
 
         [Theory]
+        [InlineData(1280, 720, 0, 0, 1920, 1040, 312, 140)]
+        // A second monitor or a taskbar on the left moves the work area's origin.
+        [InlineData(1280, 720, 100, 0, 1920, 1040, 412, 140)]
+        // Larger than the work area: pinned to its top left so the title bar can still be grabbed.
+        [InlineData(2560, 1440, 0, 0, 1920, 1040, 0, 0)]
+        public void CentersAWindowInTheWorkArea(int width, int height, int workX, int workY, int workWidth, int workHeight, int x, int y)
+        {
+            Assert.Equal((x, y), DisplayModes.CenterWindow(width, height, workX, workY, workWidth, workHeight));
+        }
+
+        [Fact]
+        public void DoesNotPlaceAWindowOnAnUnknownScreen()
+        {
+            Assert.Null(DisplayModes.CenterWindow(1280, 720, 0, 0, 0, 0));
+        }
+
+        [Theory]
         [InlineData(1920, 1080, 2560, 1440, false)]
         [InlineData(1366, 768, 1920, 1080, false)]
         [InlineData(1024, 768, 1920, 1080, true)]

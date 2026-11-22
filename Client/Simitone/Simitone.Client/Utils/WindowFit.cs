@@ -14,6 +14,24 @@ namespace Simitone.Client.Utils
         /// </summary>
         public static Func<int, int, (int Width, int Height)> Fit = (width, height) => (width, height);
 
+        /// <summary>
+        /// Takes a window's client size and returns where its top left corner goes to sit in the
+        /// middle of the screen, or null when the screen is unknown.
+        /// </summary>
+        public static Func<int, int, (int X, int Y)?> Center = (width, height) => null;
+
+        public static (int X, int Y)? CenterOf(int width, int height)
+        {
+            try
+            {
+                return Center(width, height);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         public static (int Width, int Height) Apply(int width, int height)
         {
             try

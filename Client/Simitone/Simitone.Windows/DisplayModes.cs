@@ -150,6 +150,18 @@ namespace Simitone.Windows
         }
 
         /// <summary>
+        /// Where a window of this client size goes to sit in the middle of the work area, frame included.
+        /// Never left of or above the work area, so the title bar stays reachable.
+        /// </summary>
+        public static (int X, int Y)? CenterWindow(int width, int height, int workX, int workY, int workWidth, int workHeight)
+        {
+            if (width <= 0 || height <= 0 || workWidth <= 0 || workHeight <= 0) return null;
+            var x = workX + (workWidth - (width + FrameWidth)) / 2;
+            var y = workY + (workHeight - (height + FrameHeight)) / 2;
+            return (Math.Max(workX, x), Math.Max(workY, y));
+        }
+
+        /// <summary>
         /// Whether full screen will stretch this size out of shape. Full screen is a borderless
         /// window over the whole display, and the game's picture is scaled to fill it.
         /// </summary>

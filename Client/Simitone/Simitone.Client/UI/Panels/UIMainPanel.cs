@@ -303,6 +303,13 @@ namespace Simitone.Client.UI.Panels
                     }
                     settings.Windowed = graphics.IsFullScreen;
                     graphics.ToggleFullScreen();
+                    if (!graphics.IsFullScreen)
+                    {
+                        // The window returns to where it was before full screen, which can be
+                        // off screen after a size change. Put it in the middle instead.
+                        var corner = Simitone.Client.Utils.WindowFit.CenterOf(graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
+                        if (corner != null) GameFacade.Game.Window.Position = new Point(corner.Value.X, corner.Value.Y);
+                    }
                     settings.Save();
                     Switcher_OnCategorySelect(1);
                 }),

@@ -175,6 +175,11 @@ namespace Simitone.Windows
                 var work = Screen.PrimaryScreen?.WorkingArea ?? System.Drawing.Rectangle.Empty;
                 return DisplayModes.FitWindow(width, height, work.Width, work.Height);
             };
+            Simitone.Client.Utils.WindowFit.Center = (width, height) =>
+            {
+                var work = Screen.PrimaryScreen?.WorkingArea ?? System.Drawing.Rectangle.Empty;
+                return DisplayModes.CenterWindow(width, height, work.X, work.Y, work.Width, work.Height);
+            };
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
             FSOEnvironment.SoftwareDepth = false;
