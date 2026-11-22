@@ -127,6 +127,7 @@ namespace Simitone.Windows
             FSOEnvironment.UserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Simitone/").Replace('\\', '/');
             Directory.CreateDirectory(FSOEnvironment.UserDir);
 
+            var firstRun = !File.Exists(Path.Combine(FSOEnvironment.UserDir, "config.ini"));
             var prefs = LauncherPreferences.Load(FSOEnvironment.UserDir);
             var settings = GlobalSettings.Default;
             var path = FirstValidSimsPath(pathArg, settings.StartupPath, gameLocator.FindTheSims1());
@@ -150,7 +151,7 @@ namespace Simitone.Windows
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                using (var launcher = new LauncherForm(choice, linux))
+                using (var launcher = new LauncherForm(choice, linux, firstRun))
                 {
                     if (launcher.ShowDialog() != DialogResult.OK) return;
                     choice = launcher.Choice;

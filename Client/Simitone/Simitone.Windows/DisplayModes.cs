@@ -137,6 +137,18 @@ namespace Simitone.Windows
         }
 
         /// <summary>
+        /// Whether full screen will stretch this size out of shape. Full screen is a borderless
+        /// window over the whole display, and the game's picture is scaled to fill it.
+        /// </summary>
+        public static bool StretchesInFullScreen(int width, int height, int desktopWidth, int desktopHeight)
+        {
+            if (width <= 0 || height <= 0 || desktopWidth <= 0 || desktopHeight <= 0) return false;
+            var shape = (double)width / height;
+            var desktopShape = (double)desktopWidth / desktopHeight;
+            return Math.Abs(shape - desktopShape) / desktopShape > 0.02;
+        }
+
+        /// <summary>
         /// Display scaling in percent, from the desktop's real width and the width this process is
         /// given. 100 when either is unknown.
         /// </summary>

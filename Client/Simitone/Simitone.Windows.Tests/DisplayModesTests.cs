@@ -94,6 +94,17 @@ namespace Simitone.Windows.Tests
         }
 
         [Theory]
+        [InlineData(1920, 1080, 2560, 1440, false)]
+        [InlineData(1366, 768, 1920, 1080, false)]
+        [InlineData(1024, 768, 1920, 1080, true)]
+        [InlineData(1920, 1080, 1920, 1200, true)]
+        [InlineData(1024, 768, 0, 0, false)]
+        public void SpotsSizesFullScreenWillStretch(int width, int height, int desktopWidth, int desktopHeight, bool stretches)
+        {
+            Assert.Equal(stretches, DisplayModes.StretchesInFullScreen(width, height, desktopWidth, desktopHeight));
+        }
+
+        [Theory]
         [InlineData(1920, 1920, 100)]
         [InlineData(1920, 1536, 125)]
         [InlineData(2560, 1707, 150)]

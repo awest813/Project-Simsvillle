@@ -68,7 +68,8 @@ namespace Simitone.Windows
             (20, "Korean")
         };
 
-        public LauncherForm(LauncherChoice initial, bool linux)
+        /// <param name="firstRun">No settings were saved yet, so the display choices are defaults.</param>
+        public LauncherForm(LauncherChoice initial, bool linux, bool firstRun = false)
         {
             Choice = initial;
             Text = "Simitone";
@@ -300,6 +301,7 @@ namespace Simitone.Windows
             Controls.Add(_play);
             Controls.Add(quit);
             Controls.Add(userFolder);
+            if (firstRun) ApplyFirstRunDisplay();
             RefreshStatus();
             RefreshDisplayHint();
         }
@@ -325,6 +327,28 @@ namespace Simitone.Windows
             _refresh.SelectedIndex = Math.Max(0, rate);
         }
 
+        /// <summary>
+        /// The default is a 1024 x 768 window. On a small or scaled screen that window does not fit,
+        /// and nothing smaller holds the interface, so start in full screen at the desktop size.
+        /// </summary>
+        void ApplyFirstRunDisplay()
+        {
+            if (!_windowed.Checked || !(_resolution.SelectedItem is ResolutionOption size)) return;
+            var work = Screen.PrimaryScreen?.WorkingArea ?? Rectangle.Empty;
+            if (DisplayModes.WindowFits(size.Width, size.Height, work.Width, work.Height)) return;
+
+            // Without a known desktop size, full screen would only stretch the default. Leave it.
+            for (int i = 0; i < _resolution.Items.Count; i++)
+            {
+                if (_resolution.Items[i] is ResolutionOption option && option.Desktop)
+                {
+                    _resolution.SelectedIndex = i;
+                    _windowed.Checked = false;
+                    return;
+                }
+            }
+        }
+
         void RefreshDisplayHint()
         {
             var text = "";
@@ -339,6 +363,13 @@ namespace Simitone.Windows
                         (scaling > 100 ? " at " + scaling + "% display scaling" : "") +
                         ". Choose a smaller size, or turn off Windowed.";
                 }
+            }
+            else if (!_windowed.Checked && _resolution.SelectedItem is ResolutionOption full && _desktop != null &&
+                DisplayModes.StretchesInFullScreen(full.Width, full.Height, _desktop.Value.Width, _desktop.Value.Height))
+            {
+                text = "Full screen stretches " + full.Width + " x " + full.Height + " to fill this " +
+                    _desktop.Value.Width + " x " + _desktop.Value.Height + " screen, so it will look out of shape. " +
+                    "Pick a size with the screen's shape to avoid that.";
             }
             _displayHint.Text = text;
         }
