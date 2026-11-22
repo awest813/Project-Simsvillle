@@ -169,6 +169,12 @@ namespace Simitone.Windows
             useDX = MonogameLinker.Link(useDX);
 
             FSO.Files.ImageLoaderHelpers.BitmapFunction = BitmapReader;
+            // The client switches to windowed from its options panel. Let it size the window to this screen.
+            Simitone.Client.Utils.WindowFit.Fit = (width, height) =>
+            {
+                var work = Screen.PrimaryScreen?.WorkingArea ?? System.Drawing.Rectangle.Empty;
+                return DisplayModes.FitWindow(width, height, work.Width, work.Height);
+            };
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
             FSOEnvironment.SoftwareDepth = false;

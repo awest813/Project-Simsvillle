@@ -291,6 +291,16 @@ namespace Simitone.Client.UI.Panels
                 new UICatFunc(windowed ? "Windowed" : "Full Screen", "mode_options.png", () =>
                 {
                     if (graphics == null || FSOEnvironment.SoftwareKeyboard) return;
+                    if (graphics.IsFullScreen)
+                    {
+                        // Full screen often runs at the desktop size. As a window that is larger than
+                        // the screen, so shrink it to fit before leaving full screen.
+                        var fitted = Simitone.Client.Utils.WindowFit.Apply(graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
+                        graphics.PreferredBackBufferWidth = fitted.Width;
+                        graphics.PreferredBackBufferHeight = fitted.Height;
+                        settings.GraphicsWidth = fitted.Width;
+                        settings.GraphicsHeight = fitted.Height;
+                    }
                     settings.Windowed = graphics.IsFullScreen;
                     graphics.ToggleFullScreen();
                     settings.Save();

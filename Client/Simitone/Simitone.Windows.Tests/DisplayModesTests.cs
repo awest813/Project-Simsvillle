@@ -94,6 +94,20 @@ namespace Simitone.Windows.Tests
         }
 
         [Theory]
+        // Already fits: unchanged.
+        [InlineData(1280, 720, 1920, 1040, 1280, 720)]
+        // Desktop-sized full screen on a 1080p screen: shrinks to fit 1904 x 1000, keeping 16:9.
+        [InlineData(1920, 1080, 1920, 1040, 1777, 1000)]
+        // 1080p at 150%: the work area is 1280 x 693.
+        [InlineData(1920, 1080, 1280, 693, 1160, 653)]
+        // Unknown work area: unchanged.
+        [InlineData(2560, 1440, 0, 0, 2560, 1440)]
+        public void ShrinksAWindowToFitKeepingItsShape(int width, int height, int workWidth, int workHeight, int fitWidth, int fitHeight)
+        {
+            Assert.Equal((fitWidth, fitHeight), DisplayModes.FitWindow(width, height, workWidth, workHeight));
+        }
+
+        [Theory]
         [InlineData(1920, 1080, 2560, 1440, false)]
         [InlineData(1366, 768, 1920, 1080, false)]
         [InlineData(1024, 768, 1920, 1080, true)]

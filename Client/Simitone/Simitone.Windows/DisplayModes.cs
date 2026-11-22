@@ -137,6 +137,19 @@ namespace Simitone.Windows
         }
 
         /// <summary>
+        /// The largest size with the same shape as width x height that fits the work area with its
+        /// frame. Sizes that already fit, and any size when the work area is unknown, are returned as they are.
+        /// </summary>
+        public static (int Width, int Height) FitWindow(int width, int height, int workWidth, int workHeight)
+        {
+            if (width <= 0 || height <= 0 || WindowFits(width, height, workWidth, workHeight)) return (width, height);
+            var room = (Width: workWidth - FrameWidth, Height: workHeight - FrameHeight);
+            if (room.Width < 1 || room.Height < 1) return (width, height);
+            var scale = Math.Min(room.Width / (double)width, room.Height / (double)height);
+            return (Math.Max(1, (int)(width * scale)), Math.Max(1, (int)(height * scale)));
+        }
+
+        /// <summary>
         /// Whether full screen will stretch this size out of shape. Full screen is a borderless
         /// window over the whole display, and the game's picture is scaled to fill it.
         /// </summary>
