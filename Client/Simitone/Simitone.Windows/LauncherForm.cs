@@ -35,6 +35,8 @@ namespace Simitone.Windows
         readonly RadioButton _directX;
         readonly RadioButton _openGL;
         readonly Button _play;
+        readonly Label _displayHint;
+        DisplayMode? _desktop;
 
         // The folder Play will use. It can differ from the text box when the player
         // typed the folder above the install, or the GameData folder inside it.
@@ -74,7 +76,7 @@ namespace Simitone.Windows
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(560, 500);
+            ClientSize = new Size(560, 526);
             Font = new Font("Segoe UI", 9f);
             AutoScaleMode = AutoScaleMode.Font;
             AllowDrop = true;
@@ -141,7 +143,7 @@ namespace Simitone.Windows
             {
                 Text = "Display",
                 Location = new Point(16, 198),
-                Size = new Size(528, 150)
+                Size = new Size(528, 176)
             };
             var resolutionLabel = new Label
             {
@@ -214,6 +216,16 @@ namespace Simitone.Windows
             display.Controls.Add(_antialias);
             display.Controls.Add(_directX);
             display.Controls.Add(_openGL);
+            _displayHint = new Label
+            {
+                AutoSize = false,
+                Location = new Point(12, 134),
+                Size = new Size(504, 34),
+                ForeColor = Color.FromArgb(160, 90, 0)
+            };
+            display.Controls.Add(_displayHint);
+            _resolution.SelectedIndexChanged += (sender, args) => RefreshDisplayHint();
+            _windowed.CheckedChanged += (sender, args) => RefreshDisplayHint();
             display.Controls.Add(new Label
             {
                 Text = linux ? "This system uses OpenGL." : "F12 in a lot switches 3D and hybrid.",
@@ -225,7 +237,7 @@ namespace Simitone.Windows
             var languageBox = new GroupBox
             {
                 Text = "Language",
-                Location = new Point(16, 358),
+                Location = new Point(16, 384),
                 Size = new Size(528, 68)
             };
             _language = new ComboBox
@@ -254,21 +266,21 @@ namespace Simitone.Windows
             {
                 Text = "Open the Simitone folder",
                 AutoSize = true,
-                Location = new Point(16, 452)
+                Location = new Point(16, 478)
             };
             userFolder.LinkClicked += (sender, args) => OpenUserFolder();
 
             _play = new Button
             {
                 Text = "&Play",
-                Location = new Point(348, 444),
+                Location = new Point(348, 470),
                 Size = new Size(100, 32)
             };
             _play.Click += Play;
             var quit = new Button
             {
                 Text = "Quit",
-                Location = new Point(456, 444),
+                Location = new Point(456, 470),
                 Size = new Size(88, 32),
                 DialogResult = DialogResult.Cancel
             };
@@ -289,6 +301,7 @@ namespace Simitone.Windows
             Controls.Add(quit);
             Controls.Add(userFolder);
             RefreshStatus();
+            RefreshDisplayHint();
         }
 
         static string UserFolder =>
@@ -297,6 +310,7 @@ namespace Simitone.Windows
         void FillDisplayLists(LauncherChoice initial)
         {
             var modes = DisplayModes.Query(out var desktop);
+            _desktop = desktop;
 
             var resolutions = DisplayModes.Resolutions(modes, desktop, initial.Width, initial.Height);
             foreach (var option in resolutions) _resolution.Items.Add(option);
@@ -309,6 +323,24 @@ namespace Simitone.Windows
             var rate = rates.FindIndex(r => r.Rate == initial.RefreshRate);
             if (rate < 0) rate = rates.FindIndex(r => r.Rate == 60);
             _refresh.SelectedIndex = Math.Max(0, rate);
+        }
+
+        void RefreshDisplayHint()
+        {
+            var text = "";
+            if (_windowed.Checked && _resolution.SelectedItem is ResolutionOption size)
+            {
+                var screen = Screen.PrimaryScreen;
+                var work = screen?.WorkingArea ?? Rectangle.Empty;
+                if (!DisplayModes.WindowFits(size.Width, size.Height, work.Width, work.Height))
+                {
+                    var scaling = DisplayModes.ScalingPercent(_desktop?.Width ?? 0, screen?.Bounds.Width ?? 0);
+                    text = "A " + size.Width + " x " + size.Height + " window is larger than this screen" +
+                        (scaling > 100 ? " at " + scaling + "% display scaling" : "") +
+                        ". Choose a smaller size, or turn off Windowed.";
+                }
+            }
+            _displayHint.Text = text;
         }
 
         void OnDragEnter(object sender, DragEventArgs e)

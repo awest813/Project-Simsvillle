@@ -120,6 +120,32 @@ namespace Simitone.Windows
                 .ToList();
         }
 
+        // Room for the window frame and title bar around the game.
+        const int FrameWidth = 16;
+        const int FrameHeight = 40;
+
+        /// <summary>
+        /// Whether a game window of this size, with its frame, fits in the screen's work area.
+        /// Both are in the units Windows gives this process. Simitone does not opt into display
+        /// scaling awareness, so at 150% a 1920 x 1080 window takes 2880 x 1620 real pixels and the
+        /// work area is reported scaled down to match.
+        /// </summary>
+        public static bool WindowFits(int width, int height, int workWidth, int workHeight)
+        {
+            if (workWidth <= 0 || workHeight <= 0) return true;
+            return width + FrameWidth <= workWidth && height + FrameHeight <= workHeight;
+        }
+
+        /// <summary>
+        /// Display scaling in percent, from the desktop's real width and the width this process is
+        /// given. 100 when either is unknown.
+        /// </summary>
+        public static int ScalingPercent(int physicalWidth, int logicalWidth)
+        {
+            if (physicalWidth <= 0 || logicalWidth <= 0) return 100;
+            return (int)Math.Round(physicalWidth * 100.0 / logicalWidth / 25.0) * 25;
+        }
+
         /// <summary>
         /// The primary display's modes, in physical pixels. Empty when the display cannot be queried.
         /// </summary>

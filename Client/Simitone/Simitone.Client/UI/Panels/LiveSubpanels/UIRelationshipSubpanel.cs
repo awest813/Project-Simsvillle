@@ -93,7 +93,9 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
             var n = neighbourhood.GetNeighborByID(neighbour);
             if (n?.Relationships == null) return;
 
-            IEnumerable<KeyValuePair<int, List<short>>> rels = n.Relationships;
+            // A relationship can outlive the sim it points at. Those have nothing to show.
+            IEnumerable<KeyValuePair<int, List<short>>> rels = n.Relationships
+                .Where(x => neighbourhood.GetNeighborByID((short)x.Key) != null);
             if (RelSort == 0)
             {
                 rels = rels.Where(x => x.Value.Count > 0 && x.Value[0] >= FriendThreshold);
@@ -173,6 +175,8 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
             NameLabel.CaptionStyle.Color = UIStyle.Current.Text;
             NameLabel.CaptionStyle.Size = 10;
             NameLabel.Wrapped = true;
+            // Two lines fit above the icon: the name, and the family name below it.
+            NameLabel.MaxLines = 2;
             NameLabel.Size = new Vector2(80, 33);
             NameLabel.Position = new Vector2(5, 5);
             NameLabel.Alignment = TextAlignment.Middle | TextAlignment.Center;
@@ -192,7 +196,7 @@ namespace Simitone.Client.UI.Panels.LiveSubpanels
 
             var neighbourhood = Content.Get().Neighborhood;
             var n = neighbourhood.GetNeighborByID((short)nid);
-            var obj = Content.Get().WorldObjects.Get(n.GUID);
+            var obj = n == null ? null : Content.Get().WorldObjects.Get(n.GUID);
             if (obj != null)
             {
                 var aobj = curVM.Context.CreateObjectInstance(n.GUID, LotTilePos.OUT_OF_WORLD, Direction.NORTH, true);

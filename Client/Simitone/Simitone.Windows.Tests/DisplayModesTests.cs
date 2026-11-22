@@ -79,6 +79,31 @@ namespace Simitone.Windows.Tests
             Assert.DoesNotContain(list, r => r.Display);
         }
 
+        [Theory]
+        // 1920 x 1080 desktop at 100%: work area about 1920 x 1040 with the taskbar.
+        [InlineData(1600, 900, 1920, 1040, true)]
+        [InlineData(1920, 1080, 1920, 1040, false)]
+        // Same monitor at 150%: the work area is reported as 1280 x 693.
+        [InlineData(1024, 768, 1280, 693, false)]
+        [InlineData(1024, 600, 1280, 693, true)]
+        // Unknown work area: do not warn.
+        [InlineData(3840, 2160, 0, 0, true)]
+        public void ChecksWhetherAWindowFitsTheWorkArea(int width, int height, int workWidth, int workHeight, bool fits)
+        {
+            Assert.Equal(fits, DisplayModes.WindowFits(width, height, workWidth, workHeight));
+        }
+
+        [Theory]
+        [InlineData(1920, 1920, 100)]
+        [InlineData(1920, 1536, 125)]
+        [InlineData(2560, 1707, 150)]
+        [InlineData(3840, 1920, 200)]
+        [InlineData(0, 1920, 100)]
+        public void WorksOutTheDisplayScaling(int physical, int logical, int percent)
+        {
+            Assert.Equal(percent, DisplayModes.ScalingPercent(physical, logical));
+        }
+
         [Fact]
         public void IncludesAnUnusualDisplayRateAndTheSavedRate()
         {
